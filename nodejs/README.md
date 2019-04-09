@@ -1,3 +1,5 @@
+[![npm version](https://badge.fury.io/js/openssi-websdk.svg)](https://badge.fury.io/js/openssi-websdk)
+
 # openssi-websdk
 
 This SDK wraps calls to IBM Cloud Agent API in a set of javascript functions.

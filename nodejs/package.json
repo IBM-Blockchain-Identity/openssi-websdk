@@ -1,0 +1,29 @@
+{
+  "name": "openssi-websdk",
+  "version": "0.0.1",
+  "description": "A SDK for issuing and verifying digital credentials through a cloud agent",
+  "author": "Dale Avery <davery@us.ibm.com>",
+  "contributors": [
+    "Keith Smith <bksmith@us.ibm.com>",
+    "Aaron Reed <aaronr@us.ibm.com>",
+    "Bryce Curtis <bcurtis@us.ibm.com"
+  ],
+  "homepage": "https://github.com/IBM-Blockchain-Identity/openssi-websdk#readme",
+  "bugs": "https://github.com/IBM-Blockchain-Identity/openssi-websdk/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IBM-Blockchain-Identity/openssi-websdk.git"
+  },
+  "engines": {
+    "node": ">=10.*.*"
+  },
+  "license": "Apache-2.0",
+  "main": "sdk.js",
+  "dependencies": {
+    "async": "^2.6.2",
+    "node-fetch": "2.2.x"
+  },
+  "devDependencies": {
+    "eslint": "^5.15.1"
+  }
+}

@@ -933,70 +933,24 @@ class Agent {
 	 */
 
 	/**
-	 * Create a {@link Connection} and send a connection offer to another agent.
+	 * Create a {@link Connection}.  If recipient information is provided, the agent will attempt to contact the
+	 * recipient agent and create an inbound connection offer on that agent.  Otherwise, the connection offer is only
+	 * created on this agent, and the returned object must be passed to the intended recipient agent out-of-band in
+	 * order to establish the connection.
 	 *
-	 * @param {ConnectionRecipient} to The agent to offer the connection to.
+	 * @param {ConnectionRecipient} [to] The recipient agent.
 	 * @param {object} [properties] An image to decorate the connection offer.
 	 * @param {ImageData} [properties.icon] An image to display when someone views the connection.
 	 * @param {string} [properties.name] A friendly name to display for the issuer when the connection is viewed.
 	 * @param {string} [properties.time] A timestamp used to sort the connection in a list.
 	 * @return {Promise<Connection>} The connection offer, or the active {@link Connection} if one is already established.
 	 */
-	async sendConnectionOffer (to, properties) {
-		if (!to || !to.url && !to.name)
-			throw new TypeError('Must specify an agent name or agent url to send a connection offer');
-		if (to.url && to.name)
-			throw new TypeError('Must specify only an agent name or an agent url for a connection, not both');
-		if (to.url && typeof to.url !== 'string')
-			throw new TypeError('Invalid agent url for connection offer');
-		if (to.name && typeof to.name !== 'string')
-			throw new TypeError('Invalid agent name for connection offer');
-
+	async createConnection (to, properties) {
 		if (properties && typeof properties !== 'object')
 			throw new TypeError('Invalid properties for credential offer');
 
-		// Return any active connections
-		let search;
-		if (to.url)
-			search = {
-				'remote.url': to.url
-			};
-		else
-			search = {
-				'remote.name': to.name
-			};
-
-		const incoming_connections = [], offered_connections = [];
-
-		this.logger.info(`Checking for existing connections to ${JSON.stringify(to)}`);
-		const all_remote_connections = await this.getConnections(search);
-
-		for (const index in all_remote_connections) {
-			const state = all_remote_connections[index].state;
-			if (state === 'connected') {
-				this.logger.info(`Reusing existing connection ${all_remote_connections[index].id}`);
-				return all_remote_connections[index]; // Reuse active connections
-			} else if (state === 'inbound_offer')
-				incoming_connections.push(all_remote_connections[index]);
-			else if (state === 'outbound_offer')
-				offered_connections.push(all_remote_connections[index]);
-		}
-
-		// Return an existing offer, if we've already made one
-		if (offered_connections.length) {
-			this.logger.info(`Keeping existing connection offer ${offered_connections[0].id}`);
-			return offered_connections[0];
-		}
-
-		// Accept inbound offers from the offeree before sending more offers
-		if (incoming_connections.length) {
-			this.logger.info(`Accepting incoming connection offer ${incoming_connections[0].id} instead of sending my own offer`);
-			return this.acceptConnectionOffer(incoming_connections[0].id, properties);
-		}
-
 		// Create the connection offer with optional metadata
 		const body = {
-			to: to,
 			properties: properties ? properties : {}
 		};
 		if (!body.properties.type) body.properties.type = 'child';
@@ -1007,55 +961,129 @@ class Agent {
 		// It's useful to timestamp offers so you can sort them by most recent
 		if (!body.properties.time) body.properties.time = (new Date()).toISOString();
 
-		this.logger.info(`No existing connection/offer found. Sending connection offer to ${JSON.stringify(to)}`);
+		if (to) {
+			if (!to.url && !to.name)
+				throw new TypeError('Must specify an agent name or agent url to send a connection offer');
+			if (to.url && to.name)
+				throw new TypeError('Must specify only an agent name or an agent url for a connection, not both');
+			if (to.url && typeof to.url !== 'string')
+				throw new TypeError('Invalid agent url for connection offer');
+			if (to.name && typeof to.name !== 'string')
+				throw new TypeError('Invalid agent name for connection offer');
+
+			// Return any active connections
+			let search;
+			if (to.url)
+				search = {
+					'remote.url': to.url
+				};
+			else
+				search = {
+					'remote.name': to.name
+				};
+
+			const incoming_connections = [], offered_connections = [];
+
+			this.logger.info(`Checking for existing connections to ${JSON.stringify(to)}`);
+			const all_remote_connections = await this.getConnections(search);
+
+			for (const index in all_remote_connections) {
+				const state = all_remote_connections[index].state;
+				if (state === 'connected') {
+					this.logger.info(`Reusing existing connection ${all_remote_connections[index].id}`);
+					return all_remote_connections[index]; // Reuse active connections
+				} else if (state === 'inbound_offer')
+					incoming_connections.push(all_remote_connections[index]);
+				else if (state === 'outbound_offer')
+					offered_connections.push(all_remote_connections[index]);
+			}
+
+			// Return an existing offer, if we've already made one
+			if (offered_connections.length) {
+				this.logger.info(`Keeping existing connection offer ${offered_connections[0].id}`);
+				return offered_connections[0];
+			}
+
+			// Accept inbound offers from the offeree before sending more offers
+			if (incoming_connections.length) {
+				this.logger.info(`Accepting incoming connection offer ${incoming_connections[0].id} instead of sending my own offer`);
+				return this.acceptConnectionOffer(incoming_connections[0].id, properties);
+			}
+
+			this.logger.info(`No existing connection/offer found. Sending connection offer to ${JSON.stringify(to)}`);
+			body.to = to;
+		}
+
 		this.logger.debug(`Connection offer parameters: ${jsonPrint(body)}`);
 		const r = await this.request('connections', {
 			'method': 'POST',
 			'body': JSON.stringify(body)
 		});
-		this.logger.info(`Sent connection offer ${r.id} to ${JSON.stringify(to)}`);
-		this.logger.debug('Result from sendConnectionOffer: '+jsonPrint(r));
+		this.logger.info(`Created connection offer ${r.id}`);
+		this.logger.debug('Result from createConnection: '+jsonPrint(r));
 		return r;
 	}
 
 	/**
-	 * Accept a connection offer (a connection with the state 'inbound_offer').
+	 * Accept a connection offer.  If a connection id is passed, that connection will be updated from state
+	 * `inbound_offer` to `connected` on this agent.  If a connection offer object from another agent is passed, the
+	 * connection will be created and set to the `connected` state on this agent.
 	 *
-	 * @param {string} id The ID for an existing connection.
+	 * @param {string|Connection} connection The ID for an existing connection, or an out-of-band connection offer.
 	 * @param {object} [properties] An image to decorate the connection offer.
 	 * @param {ImageData} [properties.icon] An image to display when someone views the connection.
 	 * @param {string} [properties.name] A friendly name to display for the issuer when the connection is viewed.
 	 * @param {string} [properties.time] A timestamp used to sort the connection in a list.
 	 * @return {Promise<Connection>} The updated connection information.
 	 */
-	async acceptConnectionOffer (id, properties) {
-		if (!id || typeof id !== 'string')
-			throw new TypeError('Invalid connection id');
-		if (properties && typeof properties !== 'object')
-			throw new TypeError('Invalid properties for credential offer');
+	async acceptConnection (connection, properties) {
+		if (!connection)
+			throw new TypeError('Connection information was not provided');
 
-		const body = {
-			state: 'connected',
-			properties: { // Additional metadata for the connection, Only the state really matters for acceptance
-				type: 'child'
-			}
-		};
-		if (!body.properties.type) body.properties.type = 'child';
+		let method, body, route;
+		if (typeof connection === 'string') {
 
-		// Add an optional friendly name to the request
-		if (this.name && !body.properties.name) body.properties.name = this.name;
+			if (properties && typeof properties !== 'object')
+				throw new TypeError('Invalid properties for credential offer');
 
-		// It's useful to timestamp offers so you can sort them by most recent
-		if (!body.properties.time) body.properties.time = (new Date()).toISOString();
+			this.logger.info(`Accepting existing connection with id ${connection}`);
+			method = 'PATCH';
+			route = `connections/${connection}`;
+			body = {
+				state: 'connected',
+				properties: { // Additional metadata for the connection, Only the state really matters for acceptance
+					type: 'child'
+				}
+			};
+			if (!body.properties.type) body.properties.type = 'child';
 
-		this.logger.info(`Accepting connection offer ${id}`);
+			// Add an optional friendly name to the request
+			if (this.name && !body.properties.name) body.properties.name = this.name;
+
+			// It's useful to timestamp offers so you can sort them by most recent
+			if (!body.properties.time) body.properties.time = (new Date()).toISOString();
+
+		} else if (typeof connection === 'object') {
+
+			if (!connection.local || !connection.local.url)
+				throw new TypeError('Out-of-band connection offer had invalid offerer information');
+
+			this.logger.info(`Establishing out-of-band connection with ${connection.local.url}`);
+			body = connection;
+			route ='connections';
+			method = 'POST';
+
+		} else {
+			throw new TypeError('Invalid connection information');
+		}
+
 		this.logger.debug(`Connection acceptance parameters: ${jsonPrint(body)}`);
-		const r = await this.request('connections/' + id, {
-			'method': 'PATCH',
-			'body': JSON.stringify(body)
+		const r = await this.request(route, {
+			method: method,
+			body: JSON.stringify(body)
 		});
 		this.logger.info(`Accepted connection offer ${r.id}`);
-		this.logger.debug('Result from acceptConnectionOffer: '+jsonPrint(r));
+		this.logger.debug('Result from acceptConnection: '+jsonPrint(r));
 		return r;
 	}
 

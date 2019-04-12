@@ -933,16 +933,24 @@ class Agent {
 	 */
 
 	/**
+	 * {@link Connection}s, {@link Credential}s, and {@link Verification}s can all be extended by adding additional
+	 * properties during their creation.  For example, setting an icon in the properties of a connection could cause
+	 * that connection to be displayed with an icon when a user views it in their agent UI.  The properties listed below
+	 * are merely examples to demonstrate what these properties could be used for.
+	 * @typedef {object} Properties
+	 * @property {ImageData} [properties.icon] An image to display when someone views the connection.
+	 * @property {string} [properties.name] A friendly name to display for the issuer when the connection is viewed.
+	 * @property {string} [properties.time] A timestamp used to sort the connection in a list.
+	 */
+
+	/**
 	 * Create a {@link Connection}.  If recipient information is provided, the agent will attempt to contact the
 	 * recipient agent and create an inbound connection offer on that agent.  Otherwise, the connection offer is only
 	 * created on this agent, and the returned object must be passed to the intended recipient agent out-of-band in
 	 * order to establish the connection.
 	 *
 	 * @param {ConnectionRecipient} [to] The recipient agent.
-	 * @param {object} [properties] An image to decorate the connection offer.
-	 * @param {ImageData} [properties.icon] An image to display when someone views the connection.
-	 * @param {string} [properties.name] A friendly name to display for the issuer when the connection is viewed.
-	 * @param {string} [properties.time] A timestamp used to sort the connection in a list.
+	 * @param {Properties} [properties] Optional metadata to add to the connection offer.
 	 * @return {Promise<Connection>} The connection offer, or the active {@link Connection} if one is already established.
 	 */
 	async createConnection (to, properties) {
@@ -1030,10 +1038,7 @@ class Agent {
 	 * connection will be created and set to the `connected` state on this agent.
 	 *
 	 * @param {string|Connection} connection The ID for an existing connection, or an out-of-band connection offer.
-	 * @param {object} [properties] An image to decorate the connection offer.
-	 * @param {ImageData} [properties.icon] An image to display when someone views the connection.
-	 * @param {string} [properties.name] A friendly name to display for the issuer when the connection is viewed.
-	 * @param {string} [properties.time] A timestamp used to sort the connection in a list.
+	 * @param {Properties} [properties] Optional metadata to add to the connection offer.
 	 * @return {Promise<Connection>} The updated connection information.
 	 */
 	async acceptConnection (connection, properties) {
@@ -1270,10 +1275,7 @@ class Agent {
 	 * Creates a {@link Credential} and sends the credential request to a remote agent.
 	 * @param {RequestRecipient} to The issuer of the desired credential.
 	 * @param {SchemaIDObj} source Specifies the schema you'd like the credential to be based on.
-	 * @param {object} [properties] An image to decorate the connection offer.
-	 * @param {ImageData} [properties.icon] An image to display when someone views the connection.
-	 * @param {string} [properties.name] A friendly name to display for the issuer when the connection is viewed.
-	 * @param {string} [properties.time] A timestamp used to sort the connection in a list.
+	 * @param {Properties} [properties] Optional metadata to add to the credential request.
 	 * @return {Promise<Credential>} The created credential request.
 	 */
 	async requestCredential (to, source, properties) {
@@ -1325,10 +1327,7 @@ class Agent {
 	 * @param {CredentialDefinitionID|SchemaIDObj} source The schema or cred def the credential is based on.
 	 * @param {object} attributes The `<string>: <string>` pairs for all the fields in the credentials. The
 	 * list of fields comes from the schema the credential is based on.
-	 * @param {object} [properties] Optional metadata to add to the credential offer.
-	 * @param {ImageData} [properties.icon] An image to display when someone views the credential offer.
-	 * @param {string} [properties.name] A friendly name to display for the issuer when the credential offer is viewed.
-	 * @param {string} [properties.time] A timestamp used to sort the credential offer in a list.
+	 * @param {Properties} [properties] Optional metadata to add to the credential offer.
 	 * @returns {Promise<Credential>} A promise that resolves with the credential offer.
 	 */
 	async offerCredential (to, source, attributes, properties) {
@@ -1594,10 +1593,7 @@ class Agent {
 	 * @param {RequestRecipient} to The agent being contacted for verification.
 	 * @param {string} proof_schema_id The proof schema the verification is based on.
 	 * @param {VerificationState} state The initial state of the verification.
-	 * @param {object} [properties] Optional metadata to add to the verification.
-	 * @param {ImageData} [properties.icon] An image to display when someone views the verification.
-	 * @param {string} [properties.name] A friendly name to display for the issuer when the verification is viewed.
-	 * @param {string} [properties.time] A timestamp used to sort the verification in a list.
+	 * @param {Properties} [properties] Optional metadata to add to the verification.
 	 * @returns {Promise<Verification>} A promise that resolves with the created verification.
 	 */
 	async createVerification (to, proof_schema_id, state, properties) {

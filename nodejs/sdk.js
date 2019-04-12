@@ -139,7 +139,7 @@ class Agent {
 	setUserPassword (user, pw) {
 		this.user = user;
 		this.pw = pw;
-		this.authHeader = 'Basic ' + new Buffer(user + ':' + pw).toString('base64');
+		this.authHeader = 'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
 	}
 
 	/**
@@ -224,7 +224,7 @@ class Agent {
 		if (!account_admin_agent_password || typeof account_admin_agent_password !== 'string')
 			throw new TypeError('Invalid admin agent password');
 
-		const admin_auth = 'Basic ' + new Buffer(account_admin_agent_name + ':' + account_admin_agent_password).toString('base64');
+		const admin_auth = 'Basic ' + Buffer.from(account_admin_agent_name + ':' + account_admin_agent_password).toString('base64');
 
 		this.logger.info('Determining if self-registration is enabled on the agent');
 		const settings = await this.request('settings', {
@@ -266,7 +266,7 @@ class Agent {
 				}
 			}
 
-			const my_auth = 'Basic ' + new Buffer(this.user + ':' + this.pw).toString('base64');
+			const my_auth = 'Basic ' + Buffer.from(this.user + ':' + this.pw).toString('base64');
 			this.logger.info(`Setting ${this.user}'s password`);
 			const r = await this.request(`identities/${this.user}/password`, {
 				'headers': {'Authorization': my_auth},
@@ -299,7 +299,7 @@ class Agent {
 		if (seed) body.seed = seed;
 
 		this.logger.info(`Registering ${this.user} as a Trust Anchor`);
-		const auth = 'Basic ' + new Buffer(account_admin_agent_name + ':' + account_admin_agent_password).toString('base64');
+		const auth = 'Basic ' + Buffer.from(account_admin_agent_name + ':' + account_admin_agent_password).toString('base64');
 		const r1 = await this.request('identities/' + this.user, {
 			'headers': {'Authorization': auth},
 			'method': 'PATCH',

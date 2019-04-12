@@ -17,8 +17,12 @@ npm install --save openssi-websdk
 - [Using Promises](#using-promises)
 - [Getting started](#getting-started)
 - [Connecting with other agents](#connecting-with-other-agents)
-    - [Sending a connection offer](#sending-a-connection-offer)
-    - [Accepting incoming connection offers](#accepting-incoming-connection-offers)
+    - [Creating an in-band connection](#creating-an-in-band-connection)
+        - [Sending a connection offer](#sending-a-connection-offer)
+        - [Accepting incoming connection offers](#accepting-incoming-connection-offers)
+    - [Creating an out-of-band connection](#creating-an-out-of-band-connection)
+        - [Creating a connection offer](#creating-a-connection-offer)
+        - [Accepting a connection offer](#accepting-connection-offers)
 - [Issuing credentials](#issuing-credentials)
     - [Checking your agent's role](#checking-your-agents-role)
     - [Publishing a credential schema](#publishing-a-credential-schema)
@@ -72,9 +76,15 @@ const agent = new Agent(account_url, agent_name, agent_password);
 
 ## Connecting with other agents
 
-In order to interact with other agents to issue credentials, request verifications, etc., you must first establish a secure connection with those agents.
+In order to interact with other agents to issue credentials, request verifications, etc., you must first establish a
+secure connection with those agents.  There are two ways to establish connections, in-band and out-of-band.
 
-### Sending a connection offer
+### Creating an in-band connection
+
+If a name or url of another other agent is provided when creating the connection, this agent will attempt to contact the
+other agent and deliver the connection offer on your behalf.
+
+#### Sending a connection offer
 
 Create a `Connection` for another agent with the state `outbound_offer` and wait for it to enter the
 `connected` state:
@@ -84,10 +94,11 @@ const to = {
 	url: 'https://theiragent:@theiraccount.example.com'
 };
 
-const connection_offer = await agent.sendConnectionOffer(to);
+const connection_offer = await agent.createConnection(to);
 const accepted_connection = await agent.waitForConnection(connection_offer.id);
 ```
-### Accepting incoming connection offers
+
+#### Accepting incoming connection offers
 
 Get a list of connections with the state `inbound_offer` and change their state to `connected`
 
@@ -98,8 +109,33 @@ const opts = {
 const inbound_offers = await agent.getConnections(opts);
 
 for (const index in inbound_offers) {
-	const accepted_connection = await agent.acceptConnectionOffer(inbound_offers[index].id);
+	const accepted_connection = await agent.acceptConnection(inbound_offers[index].id);
 }
+```
+
+### Creating an out-of-band connection
+
+If another agent's name or url are not specified when creating the connection, this agent will not attempt to deliver
+the created connection offer.
+
+#### Creating a connection offer
+
+Create a `Connection` without specifying a name or url for another agent:
+
+```javascript
+const connection_offer = await agent.createConnection();
+
+// Deliver the connection_offer to the other agent's user and wait for them to send it to their agent.
+
+const accepted_connection = await agent.waitForConnection(connection_offer.id);
+```
+
+#### Accepting connection offers
+
+Post a given connection offer object to your agent.
+
+```javascript
+const accepted_connection = await agent.acceptConnection(connection_offer);
 ```
 
 ## Issuing credentials

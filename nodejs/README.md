@@ -2,7 +2,8 @@
 
 # openssi-websdk
 
-This SDK wraps calls to IBM Cloud Agent API in a set of javascript functions.
+This SDK wraps calls to [IBM Verify Credential Account Service APIs](https://swagger.info.verify-creds.com/api/v1/docs/)
+in a set of javascript functions.
 
 ## Installation
 

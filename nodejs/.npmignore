@@ -1,2 +1,4 @@
 # Development files
 .eslintrc.json
+.nyc_output
+.env

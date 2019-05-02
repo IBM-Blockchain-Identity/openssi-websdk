@@ -19,11 +19,18 @@
   },
   "license": "Apache-2.0",
   "main": "sdk.js",
+  "scripts": {
+    "test": "nyc mocha"
+  },
   "dependencies": {
     "async": "^2.6.2",
     "node-fetch": "2.2.x"
   },
   "devDependencies": {
-    "eslint": "^5.15.1"
+    "chai": "^4.2.0",
+    "dotenv": "^7.0.0",
+    "eslint": "^5.15.1",
+    "mocha": "^6.1.4",
+    "nyc": "^14.0.0"
   }
 }

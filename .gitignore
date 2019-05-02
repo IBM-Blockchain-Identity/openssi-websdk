@@ -34,3 +34,9 @@ Temporary Items
 
 # NPM
 node_modules
+
+# dotenv
+.env
+
+# Test
+.nyc_output

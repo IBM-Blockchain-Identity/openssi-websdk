@@ -111,12 +111,13 @@ class Agent {
 	 * @param {string} agent_name User name for Agent endpoint
 	 * @param {string} agent_password Password for Agent endpoint
 	 * @param {string} friendly_name The human readable name of the user
+	 * @param {string} log_level Logging level for Agent debugging
 	 */
-	constructor (account_url, agent_name, agent_password, friendly_name) {
+	constructor (account_url, agent_name, agent_password, friendly_name, log_level) {
 		this.setUrl(account_url);
 		this.setUserPassword(agent_name, agent_password);
 		this.setUserName(friendly_name);
-		this.logger = new Logger('disabled', `agent/${this.user}`);
+		this.logger = new Logger(log_level || 'disabled', `agent/${this.user}`);
 	}
 
 	/**

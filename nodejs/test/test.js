@@ -213,7 +213,7 @@ describe('sdk', () => {
 	});
 
 	it(`should delete verification from '${verifierName}'`, async () => {
-		const {id} = verification;
+		const {id}= verification;
 
 		await verifier.deleteVerification(verification.id);
 		const verifications = await verifier.getVerifications();
@@ -225,9 +225,15 @@ describe('sdk', () => {
 
 });
 
+/**
+ * Validates identity data.
+ * @param {Agent} agent The agent that proxies the identity
+ * @param {AgentInfo} identity The identity information
+ * @return {undefined}
+ */
 async function checkIdentity (agent, identity) {
-	const {user} = agent;
-	const {name, url} = identity;
+	const {user}= agent;
+	const {name, url}= identity;
 
 	expect(identity).to.not.be.undefined;
 	expect(name).to.equal(user);
@@ -332,6 +338,14 @@ async function removeCredentials (agent) {
 	}
 }
 
+/**
+ * Issues a credential from issuer to holder.
+ * @param {Agent} issuer The issuer's agent
+ * @param {Agent} holder The holder's agent
+ * @param {CredentialDefinition} credentialDefinition The schema or cred def the credential is based on
+ * @param {string} did The DID to find the connection to issue the credential to
+ * @returns {Promise<Credential>} A promise that resolves with the credential offer.
+ */
 async function issueCredential (issuer, holder, credentialDefinition, did) {
 	// find the connection that applies to the holder (this was stored earlier from the connection)
 	const issuerConnections = await issuer.getConnections();

@@ -1,4 +1,4 @@
-# openssi-websdk Tests
+# Testing openssi-websdk
 
 A mocha test suite is provided for integration testing as well as to document common self-sovereign identity steps.
 

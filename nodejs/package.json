@@ -6,7 +6,8 @@
   "contributors": [
     "Keith Smith <bksmith@us.ibm.com>",
     "Aaron Reed <aaronr@us.ibm.com>",
-    "Bryce Curtis <bcurtis@us.ibm.com"
+    "Bryce Curtis <bcurtis@us.ibm.com",
+    "Van Staub <van_staub@us.ibm.com"
   ],
   "homepage": "https://github.com/IBM-Blockchain-Identity/openssi-websdk#readme",
   "bugs": "https://github.com/IBM-Blockchain-Identity/openssi-websdk/issues",

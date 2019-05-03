@@ -20,7 +20,7 @@
   "license": "Apache-2.0",
   "main": "sdk.js",
   "scripts": {
-    "test": "nyc mocha"
+    "test": "nyc mocha --timeout 60000"
   },
   "dependencies": {
     "async": "^2.6.2",

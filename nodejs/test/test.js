@@ -18,13 +18,13 @@ const {
 	PURGE: purge
 } = process.env;
 
-const holder = new Agent(`https://${accountUrl}`, holderName, holderPassword, holderName, logLevel);
+const holder = new Agent(accountUrl, holderName, holderPassword, holderName, logLevel);
 let holderIdentity;
 
-const issuer = new Agent(`https://${accountUrl}`, issuerName, issuerPassword, issuerName, logLevel);
+const issuer = new Agent(accountUrl, issuerName, issuerPassword, issuerName, logLevel);
 let issuerIdentity;
 
-const verifier = new Agent(`https://${accountUrl}`, verifierName, verifierPassword, verifierName, logLevel);
+const verifier = new Agent(accountUrl, verifierName, verifierPassword, verifierName, logLevel);
 let verifierIdentity;
 
 describe('sdk', () => {
@@ -57,7 +57,7 @@ describe('sdk', () => {
 
 	it(`should get identity for issuer '${issuerName}'`, async () => checkIdentity(issuer, issuerIdentity));
 
-	it(`should get identity for verfier '${verifierName}'`, async () => checkIdentity(verifier, verifierIdentity));
+	it(`should get identity for verifier '${verifierName}'`, async () => checkIdentity(verifier, verifierIdentity));
 
 	/**
    * tests a holder initiated connection
@@ -160,7 +160,7 @@ describe('sdk', () => {
 		const version = '0.0.1';
 
 		// specify the attributes required in the proof and any restrictions on the credential supplied
-		const requestedAttrbutes = {
+		const requestedAttributes = {
 			jobTitleReferent: {
 				name: 'jobTitle',
 				restrictions: [
@@ -171,7 +171,7 @@ describe('sdk', () => {
 			}
 		};
 
-		proofSchema = await verifier.createProofSchema(name, version, requestedAttrbutes);
+		proofSchema = await verifier.createProofSchema(name, version, requestedAttributes);
 		expect(proofSchema).to.not.be.undefined;
 	});
 
@@ -237,7 +237,15 @@ async function checkIdentity (agent, identity) {
 
 	expect(identity).to.not.be.undefined;
 	expect(name).to.equal(user);
-	expect(url).to.equal(`https://${user}:@${accountUrl}`);
+	let agent_url;
+	if (accountUrl.indexOf('://') > 0) {
+		const index = accountUrl.indexOf('://') + 3;
+		agent_url = `${accountUrl.slice(0, index)}${user}:@${accountUrl.slice(index)}`;
+	} else {
+		agent_url = `https://${user}:@${accountUrl}`;
+	}
+
+	expect(url).to.equal(agent_url);
 }
 
 /**

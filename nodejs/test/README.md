@@ -19,7 +19,7 @@ VERIFIER_AGENT_NAME=
 VERIFIER_AGENT_PASSWORD=
 ```
 
-The `ACCOUNT_URL` can be obtained fro the browser's address bar when accessing the agency dashboard. It will appear similar to `<guid>.<subdomain>.containers.appdomain.cloud`.
+The `ACCOUNT_URL` can be obtained from the browser's address bar when accessing the agency dashboard. It will appear similar to `https://<guid>.<subdomain>.containers.appdomain.cloud`.
 
 The `ADMIN_NAME` and `ADMIN_PASSWORD` is the name and password of the first agent you create.
 

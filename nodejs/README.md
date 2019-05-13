@@ -130,6 +130,9 @@ const connection_offer = await agent.createConnection();
 
 const accepted_connection = await agent.waitForConnection(connection_offer.id);
 ```
+> `waitForConnection()` is a helper method provided for your convenience.  You could just as easily write your own logic
+for waiting on connections to be accepted.  In either case, you should probable delete connections that are not accepted
+using the `deleteConnection()` method.
 
 #### Accepting connection offers
 

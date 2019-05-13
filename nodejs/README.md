@@ -301,5 +301,5 @@ for (const index in finished_verification.info.attributes) {
 
 ## More information
 
-The SDK code has fairly extensive [JSDoc comments](sdk.js).  Read these to get a better understanding of all the
+The SDK code has fairly extensive [JSDoc comments](./sdk.js).  Read these to get a better understanding of all the
 capabilities of this SDK.

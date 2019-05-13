@@ -1843,7 +1843,12 @@ class Agent {
 			this.logger.debug('Request: ' + request_url + ' ' + jsonPrint(options));
 			const fetch_response = await fetch(request_url, options);
 			if (!fetch_response.ok) {
-				let error = await fetch_response.json();
+				let error = await fetch_response.text();
+				try {
+					error = await JSON.parse(error);
+				} catch (err) {
+					this.logger.error(`Fetch response error could not be parsed as JSON: ${err}`);
+				}
 				if (error.message) {
 					error = error.message;
 				}

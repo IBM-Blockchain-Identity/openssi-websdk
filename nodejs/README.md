@@ -254,7 +254,7 @@ const proof_schema = await agent.createProofSchema(name, version, requested_attr
 
 ### Requesting verification
 
-Create a `Verification` with the state a proof request to a given agent based on a published proof schema:
+Create a `Verification` with the state `outbound_proof_request` to send a proof request to a given agent based on a published proof schema:
 
 ```javascript
 const to = {
@@ -294,9 +294,9 @@ for (const index in finished_verification.info.attributes) {
     
     console.log(`${attr.cred_def_id ? '*' : ' '}${attr.name} = ${attr.value}`);
     
-    if (attr.name = 'first_name') {
+    if (attr.name === 'first_name') {
     	assert(attr.value === 'John');
-    } else if (attr.name = 'last_name') {
+    } else if (attr.name === 'last_name') {
     	assert(attr.cred_def_id && attr.value === 'Doe')
     }
 }
@@ -304,5 +304,5 @@ for (const index in finished_verification.info.attributes) {
 
 ## More information
 
-The SDK code has fairly extensive [JSDoc comments](./sdk.js).  Read these to get a better understanding of all the
+The SDK code has fairly extensive [JSDoc comments](sdk.js).  Read these to get a better understanding of all the
 capabilities of this SDK.

@@ -72,7 +72,7 @@ const agent = new Agent(account_url, agent_name, agent_password);
 	// Check the username and password by hitting the API
     const agentInfo = await agent.getIdentity();
     console.log(`Agent info: ${JSON.stringify(agentInfo, 0, 1)}`)
-})
+})();
 ````
 
 ## Connecting with other agents

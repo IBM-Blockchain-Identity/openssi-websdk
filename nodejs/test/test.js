@@ -149,7 +149,7 @@ describe('sdk', () => {
 		expect(request).to.not.be.undefined;
 
 		// issue the credential just like the issuer-initiated flow
-		credential = issueCredential(issuer, holder, credentialDefinition, pairwiseDid);
+		credential = await issueCredential(issuer, holder, credentialDefinition, pairwiseDid);
 	});
 
 	it(`should disconnect '${holderName}' from '${issuerName}'`, async () => await disconnect(holder, issuer, pairwiseDid));

@@ -26,7 +26,7 @@ let issuerIdentity;
 
 const verifier = new Agent(accountUrl, verifierName, verifierPassword, verifierName, logLevel);
 let verifierIdentity;
-
+let purgedPrevious = false;
 describe('sdk', () => {
 
 	let credential;
@@ -42,14 +42,13 @@ describe('sdk', () => {
 		verifierIdentity = await verifier.getIdentity();
 
 		// THIS WILL DELETE DATA IF SET
-		if (purge) {
+		if (purge && typeof purge === "string" && purge.toLowerCase() === "true") {
+			await removeCredentials(holder);
+
 			await removeConnections(holder);
 			await removeConnections(issuer);
 			await removeConnections(verifier);
-
-			await removeCredentials(holder);
-			await removeCredentials(holder);
-			await removeCredentials(holder);
+			purgedPrevious = true;
 		}
 	});
 
@@ -192,12 +191,14 @@ describe('sdk', () => {
 		};
 
 		const proofRequest = await verifier.createVerification(to, proofSchema.id, 'outbound_proof_request');
-
 		expect(proofRequest).to.not.be.undefined;
+		expect(proofRequest.proof_request).to.not.be.undefined;
 
 		// view proof requests and find the one from the verifier
 		const proofRequests = await holder.getVerifications({state: 'inbound_proof_request'});
-		verification = proofRequests.find(r => r.name === proofRequest.name && r.version === proofRequest.version);
+		expect(proofRequests).to.not.be.undefined;
+		verification = proofRequests.find(r => r.proof_request.name === proofRequest.proof_request.name && r.proof_request.version === proofRequest.proof_request.version);
+		expect(verification).to.not.be.undefined;
 
 		// provide proof
 		await holder.updateVerification(verification.id, 'proof_generated');
@@ -263,19 +264,28 @@ async function connect (aAgent, aIdentity, bAgent, bIdentity) {
 	const aConnection = await aAgent.createConnection(to);
 	expect(aConnection).to.not.be.undefined;
 	expect(aConnection.remote.url).to.equal(bIdentity.url);
+	let usingOffer = false;
+	if (aConnection && aConnection.state === 'outbound_offer') {
+		usingOffer = true;
+	}
 
-	// check the offers in the receiver's queue
-	let bConnections = await bAgent.getConnections({state: 'inbound_offer'});
+	if (usingOffer) {
+		// check the offers in the receiver's queue
+		let bConnections = await bAgent.getConnections({state: 'inbound_offer'});
 
-	expect(bConnections.length).to.be.greaterThan(0);
+		expect(bConnections.length).to.be.greaterThan(0);
 
-	// get the matching connection offer
-	const offer = bConnections.find(c => c.remote.pairwise.did === aConnection.local.pairwise.did);
+		// get the matching connection offer
+		const offer = bConnections.find(c => c.remote.pairwise.did === aConnection.local.pairwise.did);
 
-	expect(offer).to.not.be.undefined;
+		expect(offer).to.not.be.undefined;
 
-	// accept the connection offer
-	await bAgent.acceptConnection(offer.id);
+		// accept the connection offer
+		await bAgent.acceptConnection(offer.id);
+	} else {
+		// should only enter here if purge wasn't previously performed
+		expect(purgedPrevious).to.be.false;
+	}
 
 	// verify the connections exist
 	const aConnections = await aAgent.getConnections();

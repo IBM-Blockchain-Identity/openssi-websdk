@@ -1,6 +1,6 @@
 {
   "name": "openssi-websdk",
-  "version": "0.0.9-alpha",
+  "version": "0.0.10-alpha",
   "description": "A SDK for issuing and verifying digital credentials through a cloud agent",
   "author": "Dale Avery <davery@us.ibm.com>",
   "contributors": [
@@ -24,14 +24,14 @@
     "test": "nyc mocha --timeout 60000"
   },
   "dependencies": {
-    "async": "^2.6.2",
+    "async": "^2.6.3",
     "node-fetch": "2.2.x"
   },
   "devDependencies": {
     "chai": "^4.2.0",
     "dotenv": "^7.0.0",
     "eslint": "^5.15.1",
-    "mocha": "^6.1.4",
-    "nyc": "^14.0.0"
+    "mocha": "^6.2.3",
+    "nyc": "^14.1.1"
   }
 }

@@ -1016,7 +1016,7 @@ class Agent {
 			// Accept inbound offers from the offeree before sending more offers
 			if (incoming_connections.length) {
 				this.logger.info(`Accepting incoming connection offer ${incoming_connections[0].id} instead of sending my own offer`);
-				return this.acceptConnectionOffer(incoming_connections[0].id, properties);
+				return this.acceptConnection(incoming_connections[0].id, properties);
 			}
 
 			this.logger.info(`No existing connection/offer found. Sending connection offer to ${JSON.stringify(to)}`);

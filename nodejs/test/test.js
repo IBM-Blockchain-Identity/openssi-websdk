@@ -27,6 +27,7 @@ let issuerIdentity;
 const verifier = new Agent(accountUrl, verifierName, verifierPassword, verifierName, logLevel);
 let verifierIdentity;
 let purgedPrevious = false;
+let ignoreConnectionError = false;
 describe('sdk', () => {
 
 	let credential;
@@ -43,7 +44,8 @@ describe('sdk', () => {
 
 		// THIS WILL DELETE DATA IF SET
 		if (purge && typeof purge === "string" && purge.toLowerCase() === "true") {
-			await removeCredentials(holder);
+			ignoreConnectionError = true;
+			await removeCredentials(holder, ignoreConnectionError);
 
 			await removeConnections(holder);
 			await removeConnections(issuer);
@@ -153,6 +155,26 @@ describe('sdk', () => {
 	});
 
 	it(`should disconnect '${holderName}' from '${issuerName}'`, async () => await disconnect(holder, issuer, pairwiseDid));
+
+	it(`should connect '${holderName}' to '${issuerName}' after offer`, async () => {
+		let existingConnections = await issuer.getConnections({"remote.url": holderIdentity.url});
+		expect(existingConnections.length).to.equal(0);
+		const to = {url: holderIdentity.url}; // create the connection request body
+
+		// make the connection request
+		const aConnection = await issuer.createConnection(to);
+		expect(aConnection).to.not.be.undefined;
+		expect(aConnection.remote.url).to.equal(holderIdentity.url);
+		expect(aConnection.state).to.equal('outbound_offer');
+
+		// make sure can finish the connection from the holder's end using createConnection
+		const newConnection = await holder.createConnection({url: issuerIdentity.url});
+		expect(newConnection).to.not.be.undefined;
+		expect(newConnection.state).to.equal('connected');
+
+		// delete the new connection
+		await holder.deleteConnection(newConnection.id);
+	});
 
 	it(`should create proof request for '${verifierName}'`, async () => {
 		const name = `${schema.name}-${verifierName}`;
@@ -311,15 +333,15 @@ async function disconnect (aAgent, bAgent, did) {
 	let aConnections = await aAgent.getConnections();
 
 	// find the connection that applies to B
-	let connection = aConnections.find(c => c.local.did === did);
+	let connection = aConnections.find(c => c.local && c.local.pairwise.did === did);
 
 	if (connection) {
 		// delete the connection using A
 		await aAgent.deleteConnection(connection.id);
 
-		// verifier the connection is deleted
+		// verify the connection is deleted
 		aConnections = await aAgent.getConnections();
-		connection = aConnections.find(c => c.local.pairwise.did === did);
+		connection = aConnections.find(c => c.local && c.local.pairwise.did === did);
 
 		expect(connection).to.be.undefined;
 
@@ -348,11 +370,19 @@ async function removeConnections (agent) {
  * @param {Agent} agent the Agent
  * @returns {Promise<void>} A promise that resolves when all credentials are deleted.
  */
-async function removeCredentials (agent) {
+async function removeCredentials (agent, ignoreConnectionError) {
 	const credentials = await agent.getCredentials();
 
 	for (const credential of credentials) {
-		await agent.deleteCredential(credential.id);
+		try {
+			await agent.deleteCredential(credential.id);
+		} catch (error) {
+			// detect if we are ignoring connection error
+			if (ignoreConnectionError && error.message.toLowerCase().indexOf('no connection found') !== -1) {
+				continue;
+			}
+			throw error;
+		}
 	}
 }
 

@@ -6,28 +6,24 @@ dotenv.config();
 
 const {
 	ACCOUNT_URL: accountUrl,
+	ADMIN_ID: adminId,
 	ADMIN_NAME: adminName,
 	ADMIN_PASSWORD: adminPassword,
 	ISSUER_AGENT_NAME: issuerName,
-	ISSUER_AGENT_PASSWORD: issuerPassword,
 	HOLDER_AGENT_NAME: holderName,
-	HOLDER_AGENT_PASSWORD: holderPassword,
 	VERIFIER_AGENT_NAME: verifierName,
-	VERIFIER_AGENT_PASSWORD: verifierPassword,
 	LOG_LEVEL: logLevel,
 	PURGE: purge
 } = process.env;
 
-const holder = new Agent(accountUrl, holderName, holderPassword, holderName, logLevel);
+let holder;
 let holderIdentity;
-
-const issuer = new Agent(accountUrl, issuerName, issuerPassword, issuerName, logLevel);
+let issuer;
 let issuerIdentity;
-
-const verifier = new Agent(accountUrl, verifierName, verifierPassword, verifierName, logLevel);
+let verifier;
 let verifierIdentity;
-let purgedPrevious = false;
 let ignoreConnectionError = false;
+
 describe('sdk', () => {
 
 	let credential;
@@ -38,6 +34,40 @@ describe('sdk', () => {
 	let verification;
 
 	before(async () => {
+		const admin = new Agent(accountUrl, adminId, adminName, adminPassword, adminName, logLevel);
+		const adminIdentity = await admin.getIdentity();
+		expect(adminIdentity).to.not.be.undefined;
+
+		// make sure the specified agents live in this account already.  Create
+		//  agent objects for each
+		const targets = [holderName, issuerName, verifierName];
+		let agents = await admin.request('agents');
+		if (agents && agents.count > 0 && agents.items && agents.items.length > 0) {
+			for (const agent of agents.items) {
+				const targetIndex = targets.indexOf(agent.name);
+				if (targetIndex < 0) {
+					continue;
+				}
+				switch (agent.name) {
+					case holderName:
+						holder = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+						break;
+					case issuerName:
+						issuer = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+						break;
+					case verifierName:
+						verifier = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+						break;
+				}
+				targets.splice(targetIndex, 1);
+			}
+		}
+
+		if (targets.length !== 0) {
+			console.log(`Some agents aren't set up, yet: ${targets}`);
+			process.exit(1);
+		}
+
 		holderIdentity = await holder.getIdentity();
 		issuerIdentity = await issuer.getIdentity();
 		verifierIdentity = await verifier.getIdentity();
@@ -50,6 +80,9 @@ describe('sdk', () => {
 			await removeConnections(holder);
 			await removeConnections(issuer);
 			await removeConnections(verifier);
+			await removeInvitations(holder);
+			await removeInvitations(issuer);
+			await removeInvitations(verifier);
 			purgedPrevious = true;
 		}
 	});
@@ -68,11 +101,11 @@ describe('sdk', () => {
 	});
 
 	it(`'${issuerName}' should be a trust anchor`, async () => {
-		if (issuerIdentity.role !== 'TRUST_ANCHOR') {
-			issuerIdentity = await issuer.onboardAsTrustAnchor(adminName, adminPassword);
+		if (issuerIdentity.issuer === false) {
+			issuerIdentity = await issuer.onboardAsTrustAnchor();
 		}
 
-		expect(issuerIdentity.role).to.equal('TRUST_ANCHOR');
+		expect(issuerIdentity.issuer).to.equal(true);
 	});
 
 	it('should publish schema', async () => {
@@ -262,10 +295,9 @@ async function checkIdentity (agent, identity) {
 	expect(name).to.equal(user);
 	let agent_url;
 	if (accountUrl.indexOf('://') > 0) {
-		const index = accountUrl.indexOf('://') + 3;
-		agent_url = `${accountUrl.slice(0, index)}${user}:@${accountUrl.slice(index)}`;
+		agent_url = `${accountUrl}/api/v1/agents/${agent.id}`;
 	} else {
-		agent_url = `https://${user}:@${accountUrl}`;
+		agent_url = `https://${accountUrl}/api/v1/agents/${agent.id}`;
 	}
 
 	expect(url).to.equal(agent_url);
@@ -282,41 +314,25 @@ async function checkIdentity (agent, identity) {
 async function connect (aAgent, aIdentity, bAgent, bIdentity) {
 	const to = {url: bIdentity.url}; // create the connection request body
 
-	// make the connection request
-	const aConnection = await aAgent.createConnection(to);
-	expect(aConnection).to.not.be.undefined;
-	expect(aConnection.remote.url).to.equal(bIdentity.url);
-	let usingOffer = false;
-	if (aConnection && aConnection.state === 'outbound_offer') {
-		usingOffer = true;
-	}
+	// see if connection already exists
+	// TODO
 
-	if (usingOffer) {
-		// check the offers in the receiver's queue
-		let bConnections = await bAgent.getConnections({state: 'inbound_offer'});
+	// make the invitation
+	const invitation = await bAgent.createInvitation();
+	expect(invitation).to.not.be.undefined;
+	expect(invitation.url).to.not.be.undefined;
 
-		expect(bConnections.length).to.be.greaterThan(0);
-
-		// get the matching connection offer
-		const offer = bConnections.find(c => c.remote.pairwise.did === aConnection.local.pairwise.did);
-
-		expect(offer).to.not.be.undefined;
-
-		// accept the connection offer
-		await bAgent.acceptConnection(offer.id);
-	} else {
-		// should only enter here if purge wasn't previously performed
-		expect(purgedPrevious).to.be.false;
-	}
+	const aConnection = await aAgent.acceptInvitation(invitation.url);
+	expect(aConnection.state).to.be.equal('outbound_offer');
 
 	// verify the connections exist
 	const aConnections = await aAgent.getConnections();
-	bConnections = await bAgent.getConnections();
+	const bConnections = await bAgent.getConnections();
 
 	expect(aConnections.length).to.be.greaterThan(0);
 	expect(bConnections.length).to.be.greaterThan(0);
 	expect(bConnections.find(c => c.id === aConnection.id)).to.not.be.undefined;
-	expect(aConnection.remote.url).to.equal(bIdentity.url);
+	//TODO expect(aConnection.remote.url).to.equal(bIdentity.url);
 
 	return aConnection.local.pairwise.did;
 }
@@ -362,6 +378,19 @@ async function removeConnections (agent) {
 
 	for (const connection of connections) {
 		await agent.deleteConnection(connection.id);
+	}
+}
+
+/**
+ * Deletes all invitations for an agent.
+ * @param {Agent} agent the Agent
+ * @returns {Promise<void>} A promise that resolves when all invitations are deleted.
+ */
+async function removeInvitations (agent) {
+	const invitations = await agent.getInvitations();
+
+	for (const invitation of invitations) {
+		await agent.deleteInvitation(invitation.id);
 	}
 }
 

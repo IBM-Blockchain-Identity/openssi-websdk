@@ -108,15 +108,17 @@ class Agent {
 	 * Constructs an Agent instance for a user
 	 *
 	 * @param {string} account_url  The Agent endpoint url
-	 * @param {string} agent_name User name for Agent endpoint
+	 * @param {string} agent_id  Id for Agent endpoint
+	 * @param {string} agent_name  User name for Agent endpoint
 	 * @param {string} agent_password Password for Agent endpoint
 	 * @param {string} friendly_name The human readable name of the user
 	 * @param {string} log_level Logging level for Agent debugging
 	 */
-	constructor (account_url, agent_name, agent_password, friendly_name, log_level) {
+	constructor (account_url, agent_id, agent_name, agent_password, friendly_name, log_level) {
 		this.setUrl(account_url);
-		this.setUserPassword(agent_name, agent_password);
+		this.setUserPassword(agent_id, agent_password);
 		this.setUserName(friendly_name);
+		this.user = agent_name;
 		this.logger = new Logger(log_level || 'disabled', `agent/${this.user}`);
 	}
 
@@ -137,10 +139,20 @@ class Agent {
 	 * @param {string} pw The password for the Agency identity.
 	 * @returns {void}
 	 */
-	setUserPassword (user, pw) {
-		this.user = user;
+	setUserPassword (id, pw) {
+		this.id = id;
 		this.pw = pw;
-		this.authHeader = 'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
+		this.authHeader = 'Basic ' + Buffer.from(id + ':' + pw).toString('base64');
+	}
+
+	/**
+	 * Set user name that is displayed in the agent UI
+	 *
+	 * @param {string} user The name of the user
+	 * @returns {void}
+	 */
+	setUser (user) {
+		this.user = user;
 	}
 
 	/**
@@ -234,10 +246,10 @@ class Agent {
 		if (settings && settings.self_registration) {
 			this.logger.info('Self registration is enabled.  Don\'t need to change the password');
 			this.logger.info(`Creating agent: ${this.user}`);
-			const r = await this.request('identities', {
+			const r = await this.request('agents', {
 				'headers': {'Authorization': admin_auth},
 				'method': 'POST',
-				'body': JSON.stringify({'name': this.user, 'password': this.pw})
+				'body': JSON.stringify({'id': this.id, 'name': this.user, 'password': this.pw})
 			});
 			this.logger.debug('Result from createIdentity: '+jsonPrint(r));
 			return r;
@@ -247,7 +259,7 @@ class Agent {
 			this.logger.info('Self-registration is disabled');
 			this.logger.info(`Creating agent: ${this.user}`);
 			try {
-				const r = await this.request('identities', {
+				const r = await this.request('agents', {
 					'headers': {'Authorization': admin_auth},
 					'method': 'POST',
 					'body': JSON.stringify({'name': this.user, 'password': this.pw + '1'})
@@ -267,9 +279,9 @@ class Agent {
 				}
 			}
 
-			const my_auth = 'Basic ' + Buffer.from(this.user + ':' + this.pw).toString('base64');
+			const my_auth = 'Basic ' + Buffer.from(this.id + ':' + this.pw).toString('base64');
 			this.logger.info(`Setting ${this.user}'s password`);
-			const r = await this.request(`identities/${this.user}/password`, {
+			const r = await this.request(`agents/${this.id}/password`, {
 				'headers': {'Authorization': my_auth},
 				'method': 'POST',
 				'body': JSON.stringify({password_old:  this.pw + '1', password_new: this.pw})
@@ -283,29 +295,38 @@ class Agent {
 
 	/**
 	 * Set this agent's role to TRUST_ANCHOR on the ledger, giving the agent the ability to publish schemas and
-	 * credential definitions, which are needed to issue credentials.
+	 * credential definitions, which are needed to issue credentials.  The request to make an agent a
+	 * TRUST_ANCHOR may be made with account admin credentials and a seed, or without parameters.
 	 *
-	 * @param {string} account_admin_agent_name The admin agent on this agent's account. Only needed if create is true.
+	 * @param {string} account_admin_agent_id The admin agent id on this agent's account. Only needed if create is true.
 	 * @param {string} account_admin_agent_password The admin agent's password.
 	 * @param {string} [seed] A valid trustee seed.  Allows this agent to generate the NYM transaction as the network's trustee.
 	 * @returns {Promise<AgentInfo>} A promise that resolves with the updated agent information.
 	 */
-	async onboardAsTrustAnchor (account_admin_agent_name, account_admin_agent_password, seed) {
+	async onboardAsTrustAnchor (account_admin_agent_id, account_admin_agent_password, seed) {
 		if (seed && typeof seed !== 'string')
 			throw new TypeError('Invalid seed for onboarding as a Trust Anchor');
 
 		const body = {
-			role: 'TRUST_ANCHOR'
+			role: { name: 'ENDORSER' }
 		};
-		if (seed) body.seed = seed;
 
 		this.logger.info(`Registering ${this.user} as a Trust Anchor`);
-		const auth = 'Basic ' + Buffer.from(account_admin_agent_name + ':' + account_admin_agent_password).toString('base64');
-		const r1 = await this.request('identities/' + this.user, {
-			'headers': {'Authorization': auth},
-			'method': 'PATCH',
-			'body': JSON.stringify(body)
-		});
+		let r1 = null;
+		if (account_admin_agent_id && account_admin_agent_password) {
+			if (seed) body.seed = seed;
+			const auth = 'Basic ' + Buffer.from(account_admin_agent_id + ':' + account_admin_agent_password).toString('base64');
+			r1 = await this.request('agents/' + this.id, {
+				'headers': {'Authorization': auth},
+				'method': 'PATCH',
+				'body': JSON.stringify(body)
+			});
+		} else {
+			r1 = await this.request('agents/' + this.id, {
+				'method': 'PATCH',
+				'body': JSON.stringify(body)
+			});
+		}
 		this.logger.info(`Registered ${this.user} as a Trust Anchor`);
 		this.logger.debug('Result from onboardAsTrustAnchor: '+jsonPrint(r1));
 		return r1;
@@ -798,6 +819,162 @@ class Agent {
 	}
 
 	//*********************************************************************************
+	// INVITATIONS
+	//*********************************************************************************
+
+	/**
+	 * Invitations represent a way for one agent to exchange its endpoint information with another agent.
+	 *
+	 * @typedef {object} Invitation
+	 * @property {string} id A unique identifier for this connectionl
+     * @property {string} url Invitation url representing the invitation.
+     * @property {string} short_url Shortened version of the invitation url.  Good for embedding in QR codes.
+     * @property {boolean} direct_route Whether the connection offer resulting from this invitation will be sent directly to the recipient agent.
+     * @property {boolean} manual_accept Whether this invitation requires invitee to manually accept the invitation.
+     * @property {number} max_acceptances The maximum number of acceptances allowed for this invitation.
+     * @property {number} cur_acceptances How many times the invitation has been accepted so far.
+     * @property {TimeStamps} timestamps? Timestamps associated with states of the invitation
+     * @property {object} properties? Properties of the invitation
+     * @property {string} recipient_key A key created by the recipient
+	 */
+
+	/**
+	 * Gets a {@link Invitation}.
+	 * @param {string} id The ID for a invitation.
+	 * @return {Promise<Invitation>} A promise that resolves with the given invitation, or rejects if something went wrong.
+	 */
+	async getInvitation (id) {
+		if (!id || typeof id !== 'string')
+			throw new TypeError('Invitation ID must be a string');
+
+		this.logger.info(`Getting invitation ${id}`);
+		const r = await this.request(`invitations/${id}`);
+		this.logger.info(`Got invitation ${r.id}`);
+		this.logger.debug('Result from getInvitation: '+jsonPrint(r));
+		return r;
+	}
+
+	/**
+	 * Delete a {@link Invitation}.
+	 *
+	 * @param {string} id The ID of an existing invitation.
+	 * @returns {Promise<void>} A promise that resolves when the invitation is deleted.
+	 */
+	async deleteInvitation (id) {
+		if (!id || typeof id !== 'string')
+			throw new TypeError('Invitation ID was not provided');
+
+		this.logger.info(`Deleting invitation ${id}`);
+		const r = await this.request('invitations/' + id, {
+			method: 'DELETE'
+		});
+		this.logger.info(`Deleted invitation ${id}`);
+		this.logger.debug('Result from deleteInvitation: '+jsonPrint(r));
+	}
+
+	/**
+	 * An object listing [BSON query parameters]{@link https://docs.mongodb.com/manual/reference/operator/query/} that
+	 * correspond to the fields in a {@link Invitation} object. The keys listed below are simply examples to give you
+	 * the idea; there are others.
+	 * @typedef {object} InvitationQueryParams
+	 * @property {number} max_acceptances The max acceptances value of invitation we're searching for.
+	 * @property {AgentName} [properties.meta] The properties of the invitation to match against.
+	 * {
+	 *     max_acceptances: -1,
+	 *     properties.meta.nonce: "skjldflkj39993"
+	 * }
+	 */
+
+	/**
+	 * Returns a list of {@link Invitation}s.  If query parameters are provided, only invitations matching those parameters will
+	 * be returned.  If none are specified, all of the agent's invitations will be returned.
+	 * @param {InvitationQueryParams} [opts] Connections search parameters.
+	 * @return {Promise<Invitation[]>} A list of all connections or only those matching the query parameters.
+	 */
+	async getInvitations (opts) {
+		let query = '';
+		if (opts) {
+			if (typeof opts !== 'object')
+				throw new TypeError('Invalid query parameters');
+			query = `?filter=${JSON.stringify(opts)}`;
+		}
+
+		this.logger.info('Getting invitations');
+		let r = await this.request(`invitations${query}`);
+		if (r.items) r = r.items;
+		this.logger.info(`Got ${r.length} invitations`);
+		this.logger.debug(`Result from getInvitations for query '${query}': ${jsonPrint(r)}`);
+		return r;
+	}
+
+	/**
+	 * Create connection invitation.
+	 * @param {string} direct_route If true, the resulting connection offer will go directly to this agent.  Default true.
+	 * @param {string} manual_accept Whether to allow agent to automatically accept this invitation.  Default false.
+	 * @param {number} max_acceptances The maximum number of times this invitation can be accepted.  Default -1 (unlimited)
+	 * @param {object} properties The properties to embed in the invitation
+	 * @return {Promise<Invitation>} The created {@link Invitation}.
+	 */
+	async createInvitation (direct_route, manual_accept, max_acceptances, properties) {
+		if (direct_route && typeof direct_route !== 'boolean')
+			throw new TypeError('Invalid invitation direct route');
+		if (manual_accept && typeof manual_accept !== 'boolean')
+			throw new TypeError('Invalid invitation manual accept');
+		if (max_acceptances && typeof max_acceptances !== 'boolean')
+			throw new TypeError('Invalid invitation max acceptances');
+		if (properties && typeof properties !== 'object')
+			throw new TypeError('Invalid invitation properties');
+
+		this.logger.info(`Creating invitation`);
+		let body = {};
+		if (properties) {
+			body.properties = properties;
+		}
+		if (direct_route) {
+			body.direct_route = direct_route;
+		}
+		if (manual_accept) {
+			body.manual_accept = manual_accept;
+		}
+		if (max_acceptances) {
+			body.max_acceptances = max_acceptances;
+		}
+		const method = 'POST';
+		const route = 'invitations';
+		this.logger.debug(`Invitation creation parameters: ${jsonPrint(body)}`);
+		const r = await this.request(route, {
+			method,
+			body: JSON.stringify(body)
+		});
+		this.logger.info(`Created invitation ${r.id}`);
+		this.logger.debug('Result from invitation creation: '+jsonPrint(r));
+		return r;
+	}
+
+	/**
+	 * Accept connection invitation.
+	 * @param {string} url Invitation url to accept
+	 * @return {Promise<Invitation>} The accepted {@link Invitation}.
+	 */
+	async acceptInvitation (url) {
+
+		if (!url || typeof url !== 'string')
+			throw new TypeError('Invalid credential ID');
+
+		const body = {url};
+		const method = 'POST';
+		const route = 'connections';
+		this.logger.debug(`Invitation acceptance parameters: ${jsonPrint(body)}`);
+		const r = await this.request(route, {
+			method,
+			body: JSON.stringify(body)
+		});
+		this.logger.info(`Accepted invitation ${r.id}`);
+		this.logger.debug('Result from invitation acceptance: '+jsonPrint(r));
+		return r;
+	}
+
+	//*********************************************************************************
 	// CONNECTIONS
 	//*********************************************************************************
 
@@ -954,84 +1131,84 @@ class Agent {
 	 * @param {Properties} [properties] Optional metadata to add to the connection offer.
 	 * @return {Promise<Connection>} The connection offer, or the active {@link Connection} if one is already established.
 	 */
-	async createConnection (to, properties) {
-		if (properties && typeof properties !== 'object')
-			throw new TypeError('Invalid properties for credential offer');
-
-		// Create the connection offer with optional metadata
-		const body = {
-			properties: properties ? properties : {}
-		};
-		if (!body.properties.type) body.properties.type = 'child';
-
-		// Add an optional friendly name to the request
-		if (this.name && !body.properties.name) body.properties.name = this.name;
-
-		// It's useful to timestamp offers so you can sort them by most recent
-		if (!body.properties.time) body.properties.time = (new Date()).toISOString();
-
-		if (to) {
-			if (!to.url && !to.name)
-				throw new TypeError('Must specify an agent name or agent url to send a connection offer');
-			if (to.url && to.name)
-				throw new TypeError('Must specify only an agent name or an agent url for a connection, not both');
-			if (to.url && typeof to.url !== 'string')
-				throw new TypeError('Invalid agent url for connection offer');
-			if (to.name && typeof to.name !== 'string')
-				throw new TypeError('Invalid agent name for connection offer');
-
-			// Return any active connections
-			let search;
-			if (to.url)
-				search = {
-					'remote.url': to.url
-				};
-			else
-				search = {
-					'remote.name': to.name
-				};
-
-			const incoming_connections = [], offered_connections = [];
-
-			this.logger.info(`Checking for existing connections to ${JSON.stringify(to)}`);
-			const all_remote_connections = await this.getConnections(search);
-
-			for (const index in all_remote_connections) {
-				const state = all_remote_connections[index].state;
-				if (state === 'connected') {
-					this.logger.info(`Reusing existing connection ${all_remote_connections[index].id}`);
-					return all_remote_connections[index]; // Reuse active connections
-				} else if (state === 'inbound_offer')
-					incoming_connections.push(all_remote_connections[index]);
-				else if (state === 'outbound_offer')
-					offered_connections.push(all_remote_connections[index]);
-			}
-
-			// Return an existing offer, if we've already made one
-			if (offered_connections.length) {
-				this.logger.info(`Keeping existing connection offer ${offered_connections[0].id}`);
-				return offered_connections[0];
-			}
-
-			// Accept inbound offers from the offeree before sending more offers
-			if (incoming_connections.length) {
-				this.logger.info(`Accepting incoming connection offer ${incoming_connections[0].id} instead of sending my own offer`);
-				return this.acceptConnection(incoming_connections[0].id, properties);
-			}
-
-			this.logger.info(`No existing connection/offer found. Sending connection offer to ${JSON.stringify(to)}`);
-			body.to = to;
-		}
-
-		this.logger.debug(`Connection offer parameters: ${jsonPrint(body)}`);
-		const r = await this.request('connections', {
-			'method': 'POST',
-			'body': JSON.stringify(body)
-		});
-		this.logger.info(`Created connection offer ${r.id}`);
-		this.logger.debug('Result from createConnection: '+jsonPrint(r));
-		return r;
-	}
+	//async createConnection (to, properties) {
+	//	if (properties && typeof properties !== 'object')
+	//		throw new TypeError('Invalid properties for credential offer');
+	//
+	//	// Create the connection offer with optional metadata
+	//	const body = {
+	//		properties: properties ? properties : {}
+	//	};
+	//	if (!body.properties.type) body.properties.type = 'child';
+	//
+	//	// Add an optional friendly name to the request
+	//	if (this.name && !body.properties.name) body.properties.name = this.name;
+	//
+	//	// It's useful to timestamp offers so you can sort them by most recent
+	//	if (!body.properties.time) body.properties.time = (new Date()).toISOString();
+	//
+	//	if (to) {
+	//		if (!to.url && !to.name)
+	//			throw new TypeError('Must specify an agent name or agent url to send a connection offer');
+	//		if (to.url && to.name)
+	//			throw new TypeError('Must specify only an agent name or an agent url for a connection, not both');
+	//		if (to.url && typeof to.url !== 'string')
+	//			throw new TypeError('Invalid agent url for connection offer');
+	//		if (to.name && typeof to.name !== 'string')
+	//			throw new TypeError('Invalid agent name for connection offer');
+	//
+	//		// Return any active connections
+	//		let search;
+	//		if (to.url)
+	//			search = {
+	//				'remote.url': to.url
+	//			};
+	//		else
+	//			search = {
+	//				'remote.name': to.name
+	//			};
+	//
+	//		const incoming_connections = [], offered_connections = [];
+	//
+	//		this.logger.info(`Checking for existing connections to ${JSON.stringify(to)}`);
+	//		const all_remote_connections = await this.getConnections(search);
+	//
+	//		for (const index in all_remote_connections) {
+	//			const state = all_remote_connections[index].state;
+	//			if (state === 'connected') {
+	//				this.logger.info(`Reusing existing connection ${all_remote_connections[index].id}`);
+	//				return all_remote_connections[index]; // Reuse active connections
+	//			} else if (state === 'inbound_offer')
+	//				incoming_connections.push(all_remote_connections[index]);
+	//			else if (state === 'outbound_offer')
+	//				offered_connections.push(all_remote_connections[index]);
+	//		}
+	//
+	//		// Return an existing offer, if we've already made one
+	//		if (offered_connections.length) {
+	//			this.logger.info(`Keeping existing connection offer ${offered_connections[0].id}`);
+	//			return offered_connections[0];
+	//		}
+	//
+	//		// Accept inbound offers from the offeree before sending more offers
+	//		if (incoming_connections.length) {
+	//			this.logger.info(`Accepting incoming connection offer ${incoming_connections[0].id} instead of sending my own offer`);
+	//			return this.acceptConnection(incoming_connections[0].id, properties);
+	//		}
+    //
+	//		this.logger.info(`No existing connection/offer found. Sending connection offer to ${JSON.stringify(to)}`);
+	//		body.to = to;
+	//	}
+	//
+	//	this.logger.debug(`Connection offer parameters: ${jsonPrint(body)}`);
+	//	const r = await this.request('connections', {
+	//		'method': 'POST',
+	//		'body': JSON.stringify(body)
+	//	});
+	//	this.logger.info(`Created connection offer ${r.id}`);
+	//	this.logger.debug('Result from createConnection: '+jsonPrint(r));
+	//	return r;
+	//}
 
 	/**
 	 * Accept a connection offer.  If a connection id is passed, that connection will be updated from state
@@ -1045,13 +1222,13 @@ class Agent {
 	async acceptConnection (connection, properties) {
 		if (!connection)
 			throw new TypeError('Connection information was not provided');
-
+	
 		let method, body, route;
 		if (typeof connection === 'string') {
-
+	
 			if (properties && typeof properties !== 'object')
 				throw new TypeError('Invalid properties for credential offer');
-
+	
 			this.logger.info(`Accepting existing connection with id ${connection}`);
 			method = 'PATCH';
 			route = `connections/${connection}`;
@@ -1062,27 +1239,27 @@ class Agent {
 				}
 			};
 			if (!body.properties.type) body.properties.type = 'child';
-
+	
 			// Add an optional friendly name to the request
 			if (this.name && !body.properties.name) body.properties.name = this.name;
-
+	
 			// It's useful to timestamp offers so you can sort them by most recent
 			if (!body.properties.time) body.properties.time = (new Date()).toISOString();
-
+	
 		} else if (typeof connection === 'object') {
-
+	
 			if (!connection.local || !connection.local.url)
 				throw new TypeError('Out-of-band connection offer had invalid offerer information');
-
+	
 			this.logger.info(`Establishing out-of-band connection with ${connection.local.url}`);
 			body = connection;
 			route ='connections';
 			method = 'POST';
-
+	
 		} else {
 			throw new TypeError('Invalid connection information');
 		}
-
+	
 		this.logger.debug(`Connection acceptance parameters: ${jsonPrint(body)}`);
 		const r = await this.request(route, {
 			method: method,
@@ -1092,6 +1269,7 @@ class Agent {
 		this.logger.debug('Result from acceptConnection: '+jsonPrint(r));
 		return r;
 	}
+
 
 	/**
 	 * Waits for a {@link Connection} to enter the 'connected' or 'rejected'.
@@ -1289,9 +1467,9 @@ class Agent {
 		if (to.name && typeof to.name !== 'string')
 			throw new TypeError('Invalid agent name for credential request');
 
-		if (!source || !source.schema_name || typeof source.schema_name !== 'string')
+		if (!source || !source.schema.name || typeof source.schema.name !== 'string')
 			throw new TypeError('Invalid schema name for requesting a credential');
-		if (!source.schema_version || typeof source.schema_version !== 'string')
+		if (!source.schema.version || typeof source.schema.version !== 'string')
 			throw new TypeError('Invalid schema version for requesting a credential');
 
 		if (properties && typeof properties !== 'object')
@@ -1300,8 +1478,8 @@ class Agent {
 		const body = {
 			state: 'outbound_request',
 			to: to,
-			schema_name: source.schema_name,
-			schema_version: source.schema_version,
+			schema_name: source.schema.name,
+			schema_version: source.schema.version,
 			properties: properties ? properties : {}
 		};
 
@@ -1311,7 +1489,7 @@ class Agent {
 		// It's useful to timestamp offers so you can sort them by most recent
 		if (!body.properties.time) body.properties.time = (new Date()).toISOString();
 
-		this.logger.info(`Requesting a ${source.schema_name}:${source.schema_version} credential from ${JSON.stringify(to)}`);
+		this.logger.info(`Requesting a ${source.schema.name}:${source.schema.version} credential from ${JSON.stringify(to)}`);
 		const r = await this.request('credentials', {
 			'method': 'POST',
 			'body': JSON.stringify(body)
@@ -1362,12 +1540,12 @@ class Agent {
 
 		if (typeof source === 'object') {
 			// Assume a schema is being used as the source for the credential
-			if (!source.schema_name || typeof source.schema_name !== 'string')
+			if (!source.schema.name || typeof source.schema.name !== 'string')
 				throw new TypeError('Invalid schema name for credential offer');
-			if (!source.schema_version || typeof source.schema_version !== 'string')
+			if (!source.schema.version || typeof source.schema.version !== 'string')
 				throw new TypeError('Invalid schema version for credential offer');
-			body.schema_name = source.schema_name;
-			body.schema_version = source.schema_version;
+			body.schema_name = source.schema.name;
+			body.schema_version = source.schema.version;
 		} else if (source && typeof source === 'string') {
 			// Assume a credential definition is being used as the source for the credential
 			body.credential_definition_id = source;

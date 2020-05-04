@@ -1467,9 +1467,9 @@ class Agent {
 		if (to.name && typeof to.name !== 'string')
 			throw new TypeError('Invalid agent name for credential request');
 
-		if (!source || !source.schema.name || typeof source.schema.name !== 'string')
+		if (!source || !source.schema_name || typeof source.schema_name !== 'string')
 			throw new TypeError('Invalid schema name for requesting a credential');
-		if (!source.schema.version || typeof source.schema.version !== 'string')
+		if (!source.schema_version || typeof source.schema_version !== 'string')
 			throw new TypeError('Invalid schema version for requesting a credential');
 
 		if (properties && typeof properties !== 'object')
@@ -1478,8 +1478,8 @@ class Agent {
 		const body = {
 			state: 'outbound_request',
 			to: to,
-			schema_name: source.schema.name,
-			schema_version: source.schema.version,
+			schema_name: source.schema_name,
+			schema_version: source.schema_version,
 			properties: properties ? properties : {}
 		};
 
@@ -1489,7 +1489,7 @@ class Agent {
 		// It's useful to timestamp offers so you can sort them by most recent
 		if (!body.properties.time) body.properties.time = (new Date()).toISOString();
 
-		this.logger.info(`Requesting a ${source.schema.name}:${source.schema.version} credential from ${JSON.stringify(to)}`);
+		this.logger.info(`Requesting a ${source.schema_name}:${source.schema_version} credential from ${JSON.stringify(to)}`);
 		const r = await this.request('credentials', {
 			'method': 'POST',
 			'body': JSON.stringify(body)
@@ -1540,12 +1540,12 @@ class Agent {
 
 		if (typeof source === 'object') {
 			// Assume a schema is being used as the source for the credential
-			if (!source.schema.name || typeof source.schema.name !== 'string')
+			if (!source.schema_name || typeof source.schema_name !== 'string')
 				throw new TypeError('Invalid schema name for credential offer');
-			if (!source.schema.version || typeof source.schema.version !== 'string')
+			if (!source.schema_version || typeof source.schema_version !== 'string')
 				throw new TypeError('Invalid schema version for credential offer');
-			body.schema_name = source.schema.name;
-			body.schema_version = source.schema.version;
+			body.schema_name = source.schema_name;
+			body.schema_version = source.schema_version;
 		} else if (source && typeof source === 'string') {
 			// Assume a credential definition is being used as the source for the credential
 			body.credential_definition_id = source;

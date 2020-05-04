@@ -129,6 +129,7 @@ describe('sdk', () => {
 	});
 
 	it('should publish credential definition', async () => {
+
 		credentialDefinition = await issuer.createCredentialDefinition(schema.id);
 
 		expect(credentialDefinition).to.not.be.undefined;
@@ -175,39 +176,19 @@ describe('sdk', () => {
 		const to = {did: connection.remote.pairwise.did};
 
 		// make the request from holder to issuer
-		await holder.requestCredential(to, {schema_name: schema.name, schema_version: schema.version}); // FIXME, why not just use schema.name and schema.version or pass in the actual schema object
+		const credentialRequest = await holder.requestCredential(to, {schema_name: schema.name, schema_version: schema.version}); // FIXME, why not just use schema.name and schema.version or pass in the actual schema object
 
 		// as a issuer, get the credential request
 		const issuerOffers = await issuer.getCredentials({state: 'inbound_request'}); // FIXME getRequests() seems more natural
-		const request = issuerOffers.find(r => r.schema_name === schema.name && r.schema_version === schema.version);
+		const request = issuerOffers.find(r => r.id === credentialRequest.id);
 
 		expect(request).to.not.be.undefined;
 
-		// issue the credential just like the issuer-initiated flow
-		credential = await issueCredential(issuer, holder, credentialDefinition, pairwiseDid);
+		// issue the credential from this request
+		credential = await issueCredentialFromRequest(issuer, holder, request.id);
 	});
 
 	it(`should disconnect '${holderName}' from '${issuerName}'`, async () => await disconnect(holder, issuer, pairwiseDid));
-
-	it(`should connect '${holderName}' to '${issuerName}' after offer`, async () => {
-		let existingConnections = await issuer.getConnections({"remote.url": holderIdentity.url});
-		expect(existingConnections.length).to.equal(0);
-		const to = {url: holderIdentity.url}; // create the connection request body
-
-		// make the connection request
-		const aConnection = await issuer.createConnection(to);
-		expect(aConnection).to.not.be.undefined;
-		expect(aConnection.remote.url).to.equal(holderIdentity.url);
-		expect(aConnection.state).to.equal('outbound_offer');
-
-		// make sure can finish the connection from the holder's end using createConnection
-		const newConnection = await holder.createConnection({url: issuerIdentity.url});
-		expect(newConnection).to.not.be.undefined;
-		expect(newConnection.state).to.equal('connected');
-
-		// delete the new connection
-		await holder.deleteConnection(newConnection.id);
-	});
 
 	it(`should create proof request for '${verifierName}'`, async () => {
 		const name = `${schema.name}-${verifierName}`;
@@ -434,7 +415,40 @@ async function issueCredential (issuer, holder, credentialDefinition, did) {
 	const attributes = {'jobTitle': 'Developer'};
 
 	// make the offer from issuer to holder
-	const iOffer = await issuer.offerCredential(to, credentialDefinition, attributes);
+	const iOffer = await issuer.offerCredential(to, { schema_name: credentialDefinition.schema.name, schema_version: credentialDefinition.schema.version }, attributes);
+
+	// as a holder, accept the credential offer
+	const holderOffers = await holder.getCredentials({state: 'inbound_offer'});
+	expect(holderOffers.length).to.be.greaterThan(0);
+
+	// find the offer related to this test suite
+	const hOffer = holderOffers.find(offer => offer.id === iOffer.id);
+	expect(hOffer).to.not.be.undefined;
+
+	const credential = await holder.updateCredential(hOffer.id, 'accepted');
+	expect(credential).to.not.be.undefined;
+
+	return credential;
+}
+
+/**
+ * Issues a credential from issuer based on a credential request and tests to make sure holder got it.
+ * This code assumes that holder is the recipient of the generated credential offer.
+ * @param {Agent} issuer The issuer's agent
+ * @param {Agent} holder The holder's agent
+ * @param {string} requestId The id of the issuer's inbound credential request
+ * @returns {Promise<Credential>} A promise that resolves with the credential offer.
+ */
+async function issueCredentialFromRequest (issuer, holder, requestId) {
+	// as a issuer, get the credential request
+	const issuerOffers = await issuer.getCredentials({state: 'inbound_request'});
+	const request = issuerOffers.find(r => r.id === requestId);
+
+	expect(request).to.not.be.undefined;
+
+
+	const attributes = {'jobTitle': 'Developer'};
+	const iOffer = await issuer.updateCredential(requestId, 'outbound_offer', attributes);
 
 	// as a holder, accept the credential offer
 	const holderOffers = await holder.getCredentials({state: 'inbound_offer'});

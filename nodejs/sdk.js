@@ -954,14 +954,25 @@ class Agent {
 	/**
 	 * Accept connection invitation.
 	 * @param {string} url Invitation url to accept
+	 * @param {Properties} [properties] Optional metadata to add to the connection offer.
 	 * @return {Promise<Invitation>} The accepted {@link Invitation}.
 	 */
-	async acceptInvitation (url) {
+	async acceptInvitation (url, properties) {
 
 		if (!url || typeof url !== 'string')
-			throw new TypeError('Invalid credential ID');
+			throw new TypeError('Invalid inviation url');
+		if (properties && typeof properties !== 'object')
+			throw new TypeError('Invalid properties for accepting invitation');
 
-		const body = {url};
+		const body = {url, properties: properties ? properties : {}};
+		if (!body.properties.type) body.properties.type = 'child';
+
+		// Add an optional friendly name to the request
+		if (this.name && !body.properties.name) body.properties.name = this.name;
+
+		// It's useful to timestamp offers so you can sort them by most recent
+		if (!body.properties.time) body.properties.time = (new Date()).toISOString();
+
 		const method = 'POST';
 		const route = 'connections';
 		this.logger.debug(`Invitation acceptance parameters: ${jsonPrint(body)}`);
@@ -1227,7 +1238,7 @@ class Agent {
 		if (typeof connection === 'string') {
 	
 			if (properties && typeof properties !== 'object')
-				throw new TypeError('Invalid properties for credential offer');
+				throw new TypeError('Invalid properties for accepting connection');
 	
 			this.logger.info(`Accepting existing connection with id ${connection}`);
 			method = 'PATCH';

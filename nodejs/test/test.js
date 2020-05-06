@@ -303,8 +303,12 @@ async function connect (aAgent, aIdentity, bAgent, bIdentity) {
 	expect(invitation).to.not.be.undefined;
 	expect(invitation.url).to.not.be.undefined;
 
-	const aConnection = await aAgent.acceptInvitation(invitation.url);
+	const properties = {testkey: 'testvalue'};
+	const aConnection = await aAgent.acceptInvitation(invitation.url, properties);
 	expect(aConnection.state).to.be.equal('outbound_offer');
+	expect(aConnection.local).to.not.be.undefined;
+	expect(aConnection.local.properties).to.not.be.undefined;
+	expect(aConnection.local.properties.testkey).to.be.equal(properties.testkey);
 
 	// verify the connections exist
 	const aConnections = await aAgent.getConnections();

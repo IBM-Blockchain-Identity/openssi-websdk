@@ -1,6 +1,6 @@
 {
   "name": "openssi-websdk",
-  "version": "0.0.11-alpha",
+  "version": "0.0.12-alpha",
   "description": "A SDK for issuing and verifying digital credentials through a cloud agent",
   "author": "Dale Avery <davery@us.ibm.com>",
   "contributors": [

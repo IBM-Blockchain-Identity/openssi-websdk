@@ -773,9 +773,10 @@ class Agent {
 
 		this.logger.info('Getting proof schemas');
 		this.logger.info(`Getting proof schemas that match: ${query}`);
-		let r = await this.request('proof_schemas');
+		let r = await this.request(`proof_schemas${query}`);
+this.logger.info(`r: ${JSON.stringify(r)}`);
 		if (r.items) r = r.items;
-		this.logger.info(`Got ${r.length} credential definitions`);
+		this.logger.info(`Got ${r.length} proof schemas`);
 		this.logger.debug('Result from getProofSchemas: '+jsonPrint(r));
 		return r;
 	}

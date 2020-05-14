@@ -196,6 +196,17 @@ describe('sdk', () => {
 		expect(proofSchema).to.not.be.undefined;
 	});
 
+	it(`should get proof schemas from '${verifierName}'`, async () => {
+		let foundProofSchemaArray = await verifier.verifierGetProofSchemas();
+		expect(foundProofSchemaArray).to.not.be.undefined;
+		expect(foundProofSchemaArray.length).to.be.greaterThan(0);
+
+		foundProofSchemaArray = await verifier.verifierGetProofSchemas({id: proofSchema.id});
+		expect(foundProofSchemaArray).to.not.be.undefined;
+		expect(foundProofSchemaArray.length).to.be.equal(1);
+		expect(foundProofSchemaArray[0].id).to.be.equal(proofSchema.id);
+	});
+
 	it(`should connect '${holderName}' to '${verifierName}'`, async () => {
 		pairwiseDid = await connect(holder, holderIdentity, verifier, verifierIdentity);
 	});

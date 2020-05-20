@@ -22,19 +22,22 @@ let issuer;
 let issuerIdentity;
 let verifier;
 let verifierIdentity;
+let secondIssuer;
 let ignoreConnectionError = false;
 
 describe('sdk', () => {
 
 	let credential;
-	let credentialDefinition; // the credential definition (published to ledger)
+	let credentialDefinition; // the credential definition (published to ledger by issuer)
+	let locationCredentialDefinition; // the location credential definition (published to ledger by secondIssuer)
 	let pairwiseDid; // the private pairwise DID of a connection
 	let proofSchema;
-	let schema; // the schema (published to ledger)
+	let schema; // the schema (published to ledger by issuer)
+	let locationSchema; // the location schema (published to ledger by secondIssuer)
 	let verification;
+	const admin = new Agent(accountUrl, adminId, adminName, adminPassword, adminName, logLevel);
 
 	before(async () => {
-		const admin = new Agent(accountUrl, adminId, adminName, adminPassword, adminName, logLevel);
 		const adminIdentity = await admin.getIdentity();
 		expect(adminIdentity).to.not.be.undefined;
 
@@ -85,6 +88,13 @@ describe('sdk', () => {
 			await removeInvitations(verifier);
 			purgedPrevious = true;
 		}
+	});
+
+	it(`should create identity for second issuer'${issuerName}2'`, async () => {
+		secondIssuer = new Agent(accountUrl, issuer.id+'2', issuer.name+'2', issuer.pw+'2', issuer.name+'2', logLevel);
+		const secondIssuerInfo = await secondIssuer.createIdentity(adminId, adminPassword);
+		expect(secondIssuerInfo).to.not.be.undefined;
+		secondIssuerIdentity = await secondIssuer.onboardAsTrustAnchor();
 	});
 
 	it(`should get identity for holder '${holderName}'`, async () => checkIdentity(holder, holderIdentity));
@@ -139,6 +149,80 @@ describe('sdk', () => {
 		const definitions = await issuer.getCredentialDefinitions();
 
 		expect(definitions.find(d => d.id === credentialDefinition.id)).to.not.be.undefined;
+	});
+
+	it('should publish schema for second issuer', async () => {
+		// create a unique schema for testing
+		const name = `Location-${Date.now()}`; // https://schema.org/Location
+		const version = '0.0.1';
+		const attributes = [
+			'address' // https://schema.org/address
+		];
+
+		locationSchema = await secondIssuer.createCredentialSchema(name, version, attributes);
+
+		expect(locationSchema).to.not.be.undefined;
+		expect(locationSchema.id).to.not.be.undefined;
+
+		// validate the schema is contained in the issuer's list
+		const schemas = await secondIssuer.getCredentialSchemas();
+		const needle = schemas.find(haystack => haystack.id === locationSchema.id);
+
+		expect(needle).to.not.be.undefined;
+	});
+
+	it('should publish credential definition for second issuer', async () => {
+
+		locationCredentialDefinition = await secondIssuer.createCredentialDefinition(locationSchema.id);
+
+		expect(locationCredentialDefinition).to.not.be.undefined;
+		expect(locationCredentialDefinition.id).to.not.be.undefined;
+
+		// validate the credential definition is contained in the issuer's list
+		const definitions = await secondIssuer.getCredentialDefinitions();
+
+		expect(definitions.find(d => d.id === locationCredentialDefinition.id)).to.not.be.undefined;
+	});
+
+	it('should find credential schemas published by both issuers using verifier agent', async () => {
+
+		// verify credential schema exists in complete list of credential schemas
+		const allCredentialSchemas = await verifier.getCredentialSchemas(true);
+
+		expect(allCredentialSchemas).to.not.be.undefined;
+		expect(allCredentialSchemas.find(d => d.id === locationSchema.id)).to.not.be.undefined;
+
+		// verify credential schema exists in filtered list of credential schemas
+		const issuerSchemas = await verifier.getCredentialSchemas(true, {owner_did: issuerIdentity.did});
+
+		expect(issuerSchemas).to.not.be.undefined;
+		expect(issuerSchemas.find(d => d.id === schema.id)).to.not.be.undefined;
+	});
+
+	it('should find credential definitions published by both issuers using verifier agent', async () => {
+
+		// verify credential definition exists in complete list of credential definitions
+		const allCredentialDefinitions = await verifier.getCredentialDefinitions(true);
+
+		expect(allCredentialDefinitions).to.not.be.undefined;
+		expect(allCredentialDefinitions.find(d => d.id === locationCredentialDefinition.id)).to.not.be.undefined;
+
+		// verify credential definition exists in filtered list of credential definitions
+		const issuerCredentialDefinitions = await verifier.getCredentialDefinitions(true, {owner_did: issuerIdentity.did});
+
+		expect(issuerCredentialDefinitions).to.not.be.undefined;
+		expect(issuerCredentialDefinitions.find(d => d.id === credentialDefinition.id)).to.not.be.undefined;
+	});
+
+	it('should delete second issuer agent', async () => {
+		await secondIssuer.deleteIdentity();
+
+		// validate the agent is no longer on the admin's list
+		let agents = await admin.request('agents');
+		expect(agents).to.not.be.undefined;
+		expect(agents.count).to.not.be.equal(0);
+		expect(agents.items).to.not.be.undefined;
+		expect(agents.items.find(a => a.id === secondIssuer.id)).to.be.undefined;
 	});
 
 	/**
@@ -208,6 +292,17 @@ describe('sdk', () => {
 
 		proofSchema = await verifier.createProofSchema(name, version, requestedAttributes);
 		expect(proofSchema).to.not.be.undefined;
+	});
+
+	it(`should get proof schemas from '${verifierName}'`, async () => {
+		let foundProofSchemaArray = await verifier.verifierGetProofSchemas();
+		expect(foundProofSchemaArray).to.not.be.undefined;
+		expect(foundProofSchemaArray.length).to.be.greaterThan(0);
+
+		foundProofSchemaArray = await verifier.verifierGetProofSchemas({id: proofSchema.id});
+		expect(foundProofSchemaArray).to.not.be.undefined;
+		expect(foundProofSchemaArray.length).to.be.equal(1);
+		expect(foundProofSchemaArray[0].id).to.be.equal(proofSchema.id);
 	});
 
 	it(`should connect '${holderName}' to '${verifierName}'`, async () => {

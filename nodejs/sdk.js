@@ -135,7 +135,7 @@ class Agent {
 	/**
 	 * Set user and password for user's Agent
 	 *
-	 * @param {string} user A TI Agent identity.
+	 * @param {string} id A TI Agent identity.
 	 * @param {string} pw The password for the Agency identity.
 	 * @returns {void}
 	 */
@@ -227,7 +227,7 @@ class Agent {
 	 * some password, and then change that password as the agent that was created.  This function attempts to handle
 	 * both self-registration and non-self-registration scenarios.
 	 *
-	 * @param {string} account_admin_agent_name The admin agent on this agent's account. Only needed if create is true.
+	 * @param {string} account_admin_agent_id The admin agent on this agent's account. Only needed if create is true.
 	 * @param {string} account_admin_agent_password The admin agent's password.
 	 * @return {Promise<AgentInfo>} A promise that resolves with information about the agent that was created.
 	 */
@@ -267,7 +267,7 @@ class Agent {
 	async deleteIdentity (force) {
 		let query = '';
 		if (force && force === true) {
-			query = '?force'
+			query = '?force';
 		}
 		this.logger.info(`Deleting agent info for ${this.user}`);
 		await this.request(`agents/${this.id}${query}`, {
@@ -291,7 +291,7 @@ class Agent {
 			throw new TypeError('Invalid seed for onboarding as a Trust Anchor');
 
 		const body = {
-			role: { name: 'ENDORSER' }
+			role: {name: 'ENDORSER'}
 		};
 
 		this.logger.info(`Registering ${this.user} as a Trust Anchor`);
@@ -902,8 +902,8 @@ class Agent {
 		if (properties && typeof properties !== 'object')
 			throw new TypeError('Invalid invitation properties');
 
-		this.logger.info(`Creating invitation`);
-		let body = {};
+		this.logger.info('Creating invitation');
+		const body = {};
 		if (properties) {
 			body.properties = properties;
 		}
@@ -1183,7 +1183,7 @@ class Agent {
 	//			this.logger.info(`Accepting incoming connection offer ${incoming_connections[0].id} instead of sending my own offer`);
 	//			return this.acceptConnection(incoming_connections[0].id, properties);
 	//		}
-    //
+	//
 	//		this.logger.info(`No existing connection/offer found. Sending connection offer to ${JSON.stringify(to)}`);
 	//		body.to = to;
 	//	}
@@ -1210,13 +1210,13 @@ class Agent {
 	async acceptConnection (connection, properties) {
 		if (!connection)
 			throw new TypeError('Connection information was not provided');
-	
+
 		let method, body, route;
 		if (typeof connection === 'string') {
-	
+
 			if (properties && typeof properties !== 'object')
 				throw new TypeError('Invalid properties for accepting connection');
-	
+
 			this.logger.info(`Accepting existing connection with id ${connection}`);
 			method = 'PATCH';
 			route = `connections/${connection}`;
@@ -1227,27 +1227,27 @@ class Agent {
 				}
 			};
 			if (!body.properties.type) body.properties.type = 'child';
-	
+
 			// Add an optional friendly name to the request
 			if (this.name && !body.properties.name) body.properties.name = this.name;
-	
+
 			// It's useful to timestamp offers so you can sort them by most recent
 			if (!body.properties.time) body.properties.time = (new Date()).toISOString();
-	
+
 		} else if (typeof connection === 'object') {
-	
+
 			if (!connection.local || !connection.local.url)
 				throw new TypeError('Out-of-band connection offer had invalid offerer information');
-	
+
 			this.logger.info(`Establishing out-of-band connection with ${connection.local.url}`);
 			body = connection;
 			route ='connections';
 			method = 'POST';
-	
+
 		} else {
 			throw new TypeError('Invalid connection information');
 		}
-	
+
 		this.logger.debug(`Connection acceptance parameters: ${jsonPrint(body)}`);
 		const r = await this.request(route, {
 			method: method,
@@ -2009,7 +2009,7 @@ class Agent {
 			this.logger.debug('Request: ' + request_url + ' ' + jsonPrint(options));
 			const fetch_response = await fetch(request_url, options);
 			let json_response = null;
-			let responseText = await fetch_response.text();
+			const responseText = await fetch_response.text();
 			try {
 				json_response = await JSON.parse(responseText);
 			} catch (err) {

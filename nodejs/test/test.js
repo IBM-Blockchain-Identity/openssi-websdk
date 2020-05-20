@@ -43,8 +43,8 @@ describe('sdk', () => {
 
 		// make sure the specified agents live in this account already.  Create
 		//  agent objects for each
-		const targets = [holderName, issuerName, verifierName];
-		let agents = await admin.request('agents');
+		const targets = [ holderName, issuerName, verifierName ];
+		const agents = await admin.request('agents');
 		if (agents && agents.count > 0 && agents.items && agents.items.length > 0) {
 			for (const agent of agents.items) {
 				const targetIndex = targets.indexOf(agent.name);
@@ -52,15 +52,15 @@ describe('sdk', () => {
 					continue;
 				}
 				switch (agent.name) {
-					case holderName:
-						holder = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
-						break;
-					case issuerName:
-						issuer = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
-						break;
-					case verifierName:
-						verifier = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
-						break;
+				case holderName:
+					holder = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					break;
+				case issuerName:
+					issuer = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					break;
+				case verifierName:
+					verifier = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					break;
 				}
 				targets.splice(targetIndex, 1);
 			}
@@ -76,7 +76,7 @@ describe('sdk', () => {
 		verifierIdentity = await verifier.getIdentity();
 
 		// THIS WILL DELETE DATA IF SET
-		if (purge && typeof purge === "string" && purge.toLowerCase() === "true") {
+		if (purge && typeof purge === 'string' && purge.toLowerCase() === 'true') {
 			ignoreConnectionError = true;
 			await removeCredentials(holder, ignoreConnectionError);
 
@@ -86,7 +86,6 @@ describe('sdk', () => {
 			await removeInvitations(holder);
 			await removeInvitations(issuer);
 			await removeInvitations(verifier);
-			purgedPrevious = true;
 		}
 	});
 
@@ -94,7 +93,9 @@ describe('sdk', () => {
 		secondIssuer = new Agent(accountUrl, issuer.id+'2', issuer.name+'2', issuer.pw+'2', issuer.name+'2', logLevel);
 		const secondIssuerInfo = await secondIssuer.createIdentity(adminId, adminPassword);
 		expect(secondIssuerInfo).to.not.be.undefined;
-		secondIssuerIdentity = await secondIssuer.onboardAsTrustAnchor();
+		const secondIssuerIdentity = await secondIssuer.onboardAsTrustAnchor();
+		expect(secondIssuerIdentity).to.not.be.undefined;
+		expect(secondIssuerIdentity.issuer).to.equal(true);
 	});
 
 	it(`should get identity for holder '${holderName}'`, async () => checkIdentity(holder, holderIdentity));
@@ -107,7 +108,7 @@ describe('sdk', () => {
    * tests a holder initiated connection
    */
 	it(`should connect '${holderName}' to '${issuerName}'`, async () => {
-		pairwiseDid = await connect(holder, holderIdentity, issuer, issuerIdentity);
+		pairwiseDid = await connect(holder, issuer);
 	});
 
 	it(`'${issuerName}' should be a trust anchor`, async () => {
@@ -218,7 +219,7 @@ describe('sdk', () => {
 		await secondIssuer.deleteIdentity();
 
 		// validate the agent is no longer on the admin's list
-		let agents = await admin.request('agents');
+		const agents = await admin.request('agents');
 		expect(agents).to.not.be.undefined;
 		expect(agents.count).to.not.be.equal(0);
 		expect(agents.items).to.not.be.undefined;
@@ -306,7 +307,7 @@ describe('sdk', () => {
 	});
 
 	it(`should connect '${holderName}' to '${verifierName}'`, async () => {
-		pairwiseDid = await connect(holder, holderIdentity, verifier, verifierIdentity);
+		pairwiseDid = await connect(holder, verifier);
 	});
 
 	it(`should request proof from '${holderName}' by '${verifierName}'`, async () => {
@@ -382,14 +383,10 @@ async function checkIdentity (agent, identity) {
 /**
  * Connects A to B, where A and B are two agents.
  * @param {Agent} aAgent the A agent
- * @param {AgentInfo} aIdentity the A identity information
  * @param {Agent} bAgent the B agent
- * @param {AgentInfo} bIdentity the B identity information
  * @returns {Promise<string>} A promise that returns the remote pairwise DID of the connection.
  */
-async function connect (aAgent, aIdentity, bAgent, bIdentity) {
-	const to = {url: bIdentity.url}; // create the connection request body
-
+async function connect (aAgent, bAgent) {
 	// see if connection already exists
 	// TODO
 
@@ -477,6 +474,7 @@ async function removeInvitations (agent) {
 /**
  * Deletes all credentials in an agent's wallet.
  * @param {Agent} agent the Agent
+ * @param {boolean} ignoreConnectionError indicates whether to fail due to a connection missing
  * @returns {Promise<void>} A promise that resolves when all credentials are deleted.
  */
 async function removeCredentials (agent, ignoreConnectionError) {
@@ -514,7 +512,7 @@ async function issueCredential (issuer, holder, credentialDefinition, did) {
 	const attributes = {'jobTitle': 'Developer'};
 
 	// make the offer from issuer to holder
-	const iOffer = await issuer.offerCredential(to, { schema_name: credentialDefinition.schema.name, schema_version: credentialDefinition.schema.version }, attributes);
+	const iOffer = await issuer.offerCredential(to, {schema_name: credentialDefinition.schema.name, schema_version: credentialDefinition.schema.version}, attributes);
 
 	// as a holder, accept the credential offer
 	const holderOffers = await holder.getCredentials({state: 'inbound_offer'});

@@ -395,6 +395,13 @@ async function connect (aAgent, bAgent) {
 	expect(invitation).to.not.be.undefined;
 	expect(invitation.url).to.not.be.undefined;
 
+	// verify invitation is discoverable
+	const bInvitations = await bAgent.getInvitations({"id": invitation.id});
+	expect(bInvitations).to.not.be.undefined;
+	expect(bInvitations.length).to.be.greaterThan(0);
+	expect(bInvitations[0].id).to.be.equal(invitation.id);
+
+	// accept invitation
 	const properties = {testkey: 'testvalue'};
 	const aConnection = await aAgent.acceptInvitation(invitation.url, properties);
 	expect(aConnection.state).to.be.equal('outbound_offer');

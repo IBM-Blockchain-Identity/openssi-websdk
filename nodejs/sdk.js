@@ -1675,13 +1675,13 @@ class Agent {
 	 * @returns {Promise<Verification>} A promise that resolves with the created verification.
 	 */
 	async createVerification (to, proof_schema_id, state, properties) {
-		if (!to || !to.did && !to.name)
-			throw new TypeError('Must specify an agent name or agent url to send a verification');
-		if (to.did && to.name)
-			throw new TypeError('Must specify only an agent name or an agent url for a verification, not both');
+		if (!to || !to.did && !to.id)
+			throw new TypeError('Must specify an agent id or agent did to send a verification');
+		if (to.did && to.id)
+			throw new TypeError('Must specify only an agent id or an agent did for a verification, not both');
 		if (to.did && typeof to.did !== 'string')
-			throw new TypeError('Invalid agent url for verification');
-		if (to.name && typeof to.name !== 'string')
+			throw new TypeError('Invalid agent did for verification');
+		if (to.id && typeof to.id !== 'string')
 			throw new TypeError('Invalid agent name for verification');
 
 		if (!proof_schema_id || typeof proof_schema_id !== 'string')

@@ -5,7 +5,7 @@ const expect = require('chai').expect;
 dotenv.config();
 
 const {
-	ACCOUNT_URL: accountUrl,
+	AGENCY_URL: agencyUrl,
 	ADMIN_ID: adminId,
 	ADMIN_NAME: adminName,
 	ADMIN_PASSWORD: adminPassword,
@@ -35,7 +35,7 @@ describe('sdk', () => {
 	let schema; // the schema (published to ledger by issuer)
 	let locationSchema; // the location schema (published to ledger by secondIssuer)
 	let verification;
-	const admin = new Agent(accountUrl, adminId, adminName, adminPassword, adminName, logLevel);
+	const admin = new Agent(agencyUrl, adminId, adminName, adminPassword, adminName, logLevel);
 
 	before(async () => {
 		const adminIdentity = await admin.getIdentity();
@@ -53,13 +53,13 @@ describe('sdk', () => {
 				}
 				switch (agent.name) {
 				case holderName:
-					holder = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					holder = new Agent(agencyUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
 					break;
 				case issuerName:
-					issuer = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					issuer = new Agent(agencyUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
 					break;
 				case verifierName:
-					verifier = new Agent(accountUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					verifier = new Agent(agencyUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
 					break;
 				}
 				targets.splice(targetIndex, 1);
@@ -90,7 +90,7 @@ describe('sdk', () => {
 	});
 
 	it(`should create identity for second issuer'${issuerName}2'`, async () => {
-		secondIssuer = new Agent(accountUrl, issuer.id+'2', issuer.name+'2', issuer.pw+'2', issuer.name+'2', logLevel);
+		secondIssuer = new Agent(agencyUrl, issuer.id+'2', issuer.name+'2', issuer.pw+'2', issuer.name+'2', logLevel);
 		const secondIssuerInfo = await secondIssuer.createIdentity(adminId, adminPassword);
 		expect(secondIssuerInfo).to.not.be.undefined;
 		const secondIssuerIdentity = await secondIssuer.onboardAsTrustAnchor();
@@ -371,10 +371,10 @@ async function checkIdentity (agent, identity) {
 	expect(identity).to.not.be.undefined;
 	expect(name).to.equal(user);
 	let agent_url;
-	if (accountUrl.indexOf('://') > 0) {
-		agent_url = `${accountUrl}/api/v1/agents/${agent.id}`;
+	if (agencyUrl.indexOf('://') > 0) {
+		agent_url = `${agencyUrl}/api/v1/agents/${agent.id}`;
 	} else {
-		agent_url = `https://${accountUrl}/api/v1/agents/${agent.id}`;
+		agent_url = `https://${agencyUrl}/api/v1/agents/${agent.id}`;
 	}
 
 	expect(url).to.equal(agent_url);

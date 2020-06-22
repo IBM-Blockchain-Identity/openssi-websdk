@@ -2,7 +2,7 @@
 
 # openssi-websdk
 
-This SDK wraps calls to [IBM Verify Credential Account Service APIs](https://swagger.info.verify-creds.com/api/v1/docs/)
+This SDK wraps calls to [IBM Verify Credential Account Service APIs](https://agency.ibmsecurity.verify-creds.com/api/v1/docs/)
 in a set of javascript functions.
 
 ## Installation

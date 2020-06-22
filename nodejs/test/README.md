@@ -5,7 +5,8 @@ A mocha test suite is provided for integration testing as well as to document co
 ## Configuration
 
 1. To execute the tests, manually create agents for the following roles: holder, issuer, verifier.
-2. Inside the `nodejs` directory, create a `.env` file with the following properties related to the agents you created.
+2. Inside the `nodejs` directory, run `npm install` to install the packages required to run the tests.
+3. Inside the `nodejs` directory, create a `.env` file with the following properties related to the agents you created.
 
 ```env
 AGENCY_URL=

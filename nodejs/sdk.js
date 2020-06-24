@@ -803,7 +803,7 @@ class Agent {
 	 * Invitations represent a way for one agent to exchange its endpoint information with another agent.
 	 *
 	 * @typedef {object} Invitation
-	 * @property {string} id A unique identifier for this connectionl
+	 * @property {string} id A unique identifier for this invitation
      * @property {string} url Invitation url representing the invitation.
      * @property {string} short_url Shortened version of the invitation url.  Good for embedding in QR codes.
      * @property {boolean} direct_route Whether the connection offer resulting from this invitation will be sent directly to the recipient agent.
@@ -855,7 +855,7 @@ class Agent {
 	 * the idea; there are others.
 	 * @typedef {object} InvitationQueryParams
 	 * @property {number} max_acceptances The max acceptances value of invitation we're searching for.
-	 * @property {AgentName} [properties.meta] The properties of the invitation to match against.
+	 * @property {object} [properties.meta] The properties of the invitation to match against.
 	 * {
 	 *     max_acceptances: -1,
 	 *     properties.meta.nonce: "skjldflkj39993"
@@ -1341,7 +1341,7 @@ class Agent {
 	 */
 
 	/**
-	 * Describes the recipient of a {@link Verification} or a {@link Credential}.  It mus specify either `name` or `did` of an agent
+	 * Describes the recipient of a {@link Verification} or a {@link Credential}.  It must specify either `name` or `did` of an agent
 	 * that you have a {@link Connection} with.  The {@link AgentName} can only be used to refer to agents that are in
 	 * the same account as this agent.
 	 * @typedef {object} RequestRecipient
@@ -1880,6 +1880,141 @@ class Agent {
 				resolve (accepted_verification);
 			});
 		});
+	}
+
+	//*********************************************************************************
+	// MESSAGES
+	//*********************************************************************************
+
+	/**
+	 * Basic messages represent a way for one agent to exchange information with another agent.
+	 *
+	 * @typedef {object} Message
+	 * @property {string} id A unique identifier for this message
+	 * @property {string} content The body of the message
+	 * @property {string} sent_time A datetime string for when the message was sent.
+	 * @property {Connection} connection The connection over which the message travelled.  Contains information about the sender.
+	 */
+
+	/**
+	 * Gets a {@link Message}.
+	 * @param {string} id The ID for a message.
+	 * @return {Promise<Message>} A promise that resolves with the given message, or rejects if something went wrong.
+	 */
+	async getMessage (id) {
+		if (!id || typeof id !== 'string')
+			throw new TypeError('Message ID must be a string');
+
+		this.logger.info(`Getting message ${id}`);
+		const r = await this.request(`messages/${id}`);
+		this.logger.info(`Got message ${r.id}`);
+		this.logger.debug('Result from getMessage: '+jsonPrint(r));
+		return r;
+	}
+
+	/**
+	 * Delete a {@link Message}.
+	 *
+	 * @param {string} id The ID of an existing message.
+	 * @returns {Promise<void>} A promise that resolves when the message is deleted.
+	 */
+	async deleteMessage (id) {
+		if (!id || typeof id !== 'string')
+			throw new TypeError('Message ID was not provided');
+
+		this.logger.info(`Deleting message ${id}`);
+		const r = await this.request('messages/' + id, {
+			method: 'DELETE'
+		});
+		this.logger.info(`Deleted message ${id}`);
+		this.logger.debug('Result from deleteMessage: '+jsonPrint(r));
+	}
+
+	/**
+	 * An object listing [BSON query parameters]{@link https://docs.mongodb.com/manual/reference/operator/query/} that
+	 * correspond to the fields in a {@link Message} object. The keys listed below are simply examples to give you
+	 * the idea; there are others.
+	 * @typedef {object} MessageQueryParams
+	 * @property {string} id The id of the message that we're searching for.
+	 * @property {string} [connection.remote.name] The agent name of the sender.
+	 * {
+	 *     id: "d058aa41-af0b-4b10-bf67-dcdccaa5da7",
+	 *     connection.remote.name: "BBCU"
+	 * }
+	 */
+
+	/**
+	 * Returns a list of {@link Message}s.  If query parameters are provided, only messages matching those parameters will
+	 * be returned.  If none are specified, all of the agent's messages will be returned.
+	 * @param {MessageQueryParams} [opts] Connections search parameters.
+	 * @return {Promise<Message[]>} A list of all messages or only those matching the query parameters.
+	 */
+	async getMessages (opts) {
+		let query = '';
+		if (opts) {
+			if (typeof opts !== 'object')
+				throw new TypeError('Invalid query parameters');
+			query = `?filter=${JSON.stringify(opts)}`;
+		}
+
+		this.logger.info('Getting messages');
+		let r = await this.request(`messages${query}`);
+		if (r.items) r = r.items;
+		this.logger.info(`Got ${r.length} messages`);
+		this.logger.debug(`Result from getMessages for query '${query}': ${jsonPrint(r)}`);
+		return r;
+	}
+
+	/**
+	 * Describes the recipient of a {@link Message}.  It must specify either `name` or `did` of an agent
+	 * that you have a {@link Connection} with.  The {@link AgentName} can only be used to refer to agents that are in
+	 * the same account as this agent.
+	 * @typedef {object} MessageRecipient
+	 * @property {string} [id] The `id` of your shared {@link Connection} over which to send the message.
+	 * @property {DID} [did] The `remote.pairwise.did` of other agent in your shared {@link Connection}.
+	 * @property {AgentName} [name] The `remote.name` of other agent in your shared {@link Connection}.
+	 */
+
+	/**
+	 * Send a basic message to the given agent
+	 * @param {MessageRecipient} to The agent that is to receive the message.
+	 * @param {string} content The body of the message to send.
+	 * @param {string} locale The locale of the message body.  Default value is "en".
+	 * @return {Promise<Invitation>} The created {@link Invitation}.
+	 */
+	async sendMessage (to, content, locale) {
+		if (!to || !to.did && !to.name && !to.id)
+			throw new TypeError('Must specify an agent name or agent did or connection id to send a message');
+		if ((to.did && to.name) || (to.did && to.id) || (to.id && to.name))
+			throw new TypeError('Must specify only an agent name, agent DID or connection id as the recipient of a Message offer, not a combination of them');
+		if (to.did && typeof to.did !== 'string')
+			throw new TypeError('Invalid agent DID for message');
+		if (to.name && typeof to.name !== 'string')
+			throw new TypeError('Invalid agent name for message');
+		if (to.id && typeof to.id !== 'string')
+			throw new TypeError('Invalid connection id for message');
+
+		if (locale && typeof locale !== 'string')
+			throw new TypeError('Invalid content for message');
+
+		if (content && typeof content !== 'string')
+			throw new TypeError('Invalid content for message');
+
+		const method = 'POST';
+		const route = 'messages';
+		const body = {
+			to: to,
+			locale: locale,
+			content: content
+		};
+		this.logger.debug(`Message send parameters: ${jsonPrint(body)}`);
+		const r = await this.request(route, {
+			method,
+			body: JSON.stringify(body)
+		});
+		this.logger.info(`Sent message ${r.id}`);
+		this.logger.debug('Result from sending message: '+jsonPrint(r));
+		return r;
 	}
 
 	//---------------------------------------------------------------------------------

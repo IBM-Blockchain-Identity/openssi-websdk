@@ -215,6 +215,26 @@ describe('sdk', () => {
 		expect(issuerCredentialDefinitions.find(d => d.id === credentialDefinition.id)).to.not.be.undefined;
 	});
 
+	it('should send message from second issuer agent to holder agent', async () => {
+		const holderPairwiseDid = await connect(holder, secondIssuer);
+		expect(holderPairwiseDid).to.not.be.undefined;
+
+		const testMessage = "test message for holder";
+		const sentMessage = await secondIssuer.sendMessage({"did": holderPairwiseDid}, testMessage);
+		expect(sentMessage).to.not.be.undefined;
+
+		const holderMessage = await holder.getMessage(sentMessage.id);
+		expect(holderMessage).to.not.be.undefined;
+		expect(holderMessage.content).to.be.equal(testMessage);
+
+		await holder.deleteMessage(holderMessage.id);
+		const holderMessages = await holder.getMessages();
+		expect(holderMessages).to.not.be.undefined;
+		expect(holderMessages.find(a => a.id === holderMessage.id)).to.be.undefined;
+
+		await disconnect(holder, secondIssuer, holderPairwiseDid);
+	});
+
 	it('should delete second issuer agent', async () => {
 		await secondIssuer.deleteIdentity();
 

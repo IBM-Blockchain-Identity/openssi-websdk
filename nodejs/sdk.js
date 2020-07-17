@@ -500,7 +500,7 @@ class Agent {
 			if (typeof all !== 'boolean')
 				throw new TypeError('Invalid "all" parameters');
 
-			query = '?all';
+			query = '?all=true';
 		}
 
 		if (opts) {
@@ -604,7 +604,7 @@ class Agent {
 			if (typeof all !== 'boolean')
 				throw new TypeError('Invalid "all" parameters');
 
-			query = '?all';
+			query = '?all=true';
 		}
 
 		if (opts) {

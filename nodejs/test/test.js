@@ -79,6 +79,7 @@ describe('sdk', () => {
 		if (purge && typeof purge === 'string' && purge.toLowerCase() === 'true') {
 			ignoreConnectionError = true;
 			await removeCredentials(holder, ignoreConnectionError);
+			await removeCredentials(issuer, ignoreConnectionError);
 
 			await removeConnections(holder);
 			await removeConnections(issuer);
@@ -223,12 +224,28 @@ describe('sdk', () => {
 		const sentMessage = await secondIssuer.sendMessage({"did": holderPairwiseDid}, testMessage);
 		expect(sentMessage).to.not.be.undefined;
 
-		const holderMessage = await holder.getMessage(sentMessage.id);
+		let holderMessage = null;
+		for (let i=0; i<10; i++) {
+			holderMessage = await holder.getMessage(sentMessage.id);
+			if (holderMessage) {
+				break;
+			}
+			await new Promise(resolve => setTimeout(resolve, 1000));
+		}
+
 		expect(holderMessage).to.not.be.undefined;
 		expect(holderMessage.content).to.be.equal(testMessage);
-
 		await holder.deleteMessage(holderMessage.id);
-		const holderMessages = await holder.getMessages();
+
+		// make sure message was deleted
+		let holderMessages = null;
+		for (let i=0; i<10; i++) {
+			holderMessages = await holder.getMessages();
+			if (holderMessages && !holderMessages.find(a => a.id === holderMessage.id)) {
+				break;
+			}
+			await new Promise(resolve => setTimeout(resolve, 1000));
+		}
 		expect(holderMessages).to.not.be.undefined;
 		expect(holderMessages.find(a => a.id === holderMessage.id)).to.be.undefined;
 
@@ -267,7 +284,14 @@ describe('sdk', () => {
 
 		expect(credentials.find(c => c.id === credential.id)).to.be.undefined;
 	});
+/*
+	it(`should fail credential issuance from '${issuerName} to '${holderName}'`, async () => {
+		debugger;
+		credential = await issueCredential(issuer, holder, credentialDefinition.id+'foo', pairwiseDid);
 
+		expect(credentials).to.be.undefined;
+	});
+*/
 	/**
    * holder-initiated credential issuance
    */
@@ -284,7 +308,15 @@ describe('sdk', () => {
 		const credentialRequest = await holder.requestCredential(to, {schema_name: schema.name, schema_version: schema.version}); // FIXME, why not just use schema.name and schema.version or pass in the actual schema object
 
 		// as a issuer, get the credential request
-		const issuerOffers = await issuer.getCredentials({state: 'inbound_request'}); // FIXME getRequests() seems more natural
+		let issuerOffers = null;
+		for (let i=0; i<10; i++) {
+			issuerOffers = await issuer.getCredentials({state: 'inbound_request'}); // FIXME getRequests() seems more natural
+			if (issuerOffers && issuerOffers.length > 0) {
+				break;
+			}
+			await new Promise(resolve => setTimeout(resolve, 1000));
+		}
+		expect(issuerOffers.length).to.be.greaterThan(0);
 		const request = issuerOffers.find(r => r.id === credentialRequest.id);
 
 		expect(request).to.not.be.undefined;
@@ -354,6 +386,16 @@ describe('sdk', () => {
 
 		// provide proof
 		await holder.updateVerification(verification.id, 'proof_generated');
+		// wait up to 10s for generating proof response to happen
+		for (let i=0; i<11; i++) {
+			if (verification.state !== 'proof_generated') {
+				await new Promise(resolve => setTimeout(resolve, 1000));
+				verification = await holder.getVerification(verification.id);
+				continue;
+			}
+			break;
+		}
+		expect(verification.state).to.equal('proof_generated');
 		await holder.updateVerification(verification.id, 'proof_shared');
 
 		// validate it passed
@@ -362,7 +404,20 @@ describe('sdk', () => {
       v.proof_request.version === proofSchema.version);
 
 		expect(verification).to.not.be.undefined;
-		expect(verification.state).to.equal('passed');
+
+		let updatedVerification = null;
+		// wait up to 10s for verification to happen which is when state will
+		//  change from proof_shared to either passed or failed
+		for (let i=0; i<11; i++) {
+			if (verification.state === ('outbound_proof_request' || 'proof_shared')) {
+				await new Promise(resolve => setTimeout(resolve, 1000));
+				verification = await holder.getVerification(verification.id);
+				continue;
+			}
+			updatedVerification = verification;
+			break;
+		}
+		expect(updatedVerification.state).to.equal('passed');
 	});
 
 	it(`should delete verification from '${verifierName}'`, async () => {
@@ -524,7 +579,7 @@ async function removeCredentials (agent, ignoreConnectionError) {
  * Issues a credential from issuer to holder.
  * @param {Agent} issuer The issuer's agent
  * @param {Agent} holder The holder's agent
- * @param {CredentialDefinition} credentialDefinition The schema or cred def the credential is based on
+ * @param {CredentialDefinition | CredentialDefinitionID} credentialDefinition The schema or cred def the credential is based on
  * @param {string} did The DID to find the connection to issue the credential to
  * @returns {Promise<Credential>} A promise that resolves with the credential offer.
  */
@@ -539,10 +594,23 @@ async function issueCredential (issuer, holder, credentialDefinition, did) {
 	const attributes = {'jobTitle': 'Developer'};
 
 	// make the offer from issuer to holder
-	const iOffer = await issuer.offerCredential(to, {schema_name: credentialDefinition.schema.name, schema_version: credentialDefinition.schema.version}, attributes);
+	let iOffer = null;
+	if (typeof credentialDefinition === 'string') {
+		iOffer = await issuer.offerCredential(to, credentialDefinition, attributes);
+	} else {
+		iOffer = await issuer.offerCredential(to, {schema_name: credentialDefinition.schema.name, schema_version: credentialDefinition.schema.version}, attributes);
+	}
 
 	// as a holder, accept the credential offer
-	const holderOffers = await holder.getCredentials({state: 'inbound_offer'});
+	let holderOffers = null;
+	for (let i=0; i<10; i++) {
+		holderOffers = await holder.getCredentials({state: 'inbound_offer'});
+		if (holderOffers && holderOffers.length > 0) {
+			break;
+		}
+		await new Promise(resolve => setTimeout(resolve, 1000));
+	}
+
 	expect(holderOffers.length).to.be.greaterThan(0);
 
 	// find the offer related to this test suite
@@ -575,7 +643,15 @@ async function issueCredentialFromRequest (issuer, holder, requestId) {
 	const iOffer = await issuer.updateCredential(requestId, 'outbound_offer', attributes);
 
 	// as a holder, accept the credential offer
-	const holderOffers = await holder.getCredentials({state: 'inbound_offer'});
+	let holderOffers = null;
+	for (let i=0; i<10; i++) {
+		holderOffers = await holder.getCredentials({state: 'inbound_offer'});
+		if (holderOffers && holderOffers.length > 0) {
+			break;
+		}
+		await new Promise(resolve => setTimeout(resolve, 1000));
+	}
+
 	expect(holderOffers.length).to.be.greaterThan(0);
 
 	// find the offer related to this test suite
@@ -584,6 +660,17 @@ async function issueCredentialFromRequest (issuer, holder, requestId) {
 
 	const credential = await holder.updateCredential(hOffer.id, 'accepted');
 	expect(credential).to.not.be.undefined;
+
+	// as a holder, accept the credential offer
+	let storedCredentials = null;
+	for (let i=0; i<10; i++) {
+		storedCredentials = await holder.getCredentials({state: 'stored'});
+		if (storedCredentials && storedCredentials.length > 0) {
+			break;
+		}
+		await new Promise(resolve => setTimeout(resolve, 1000));
+	}
+	expect(storedCredentials.length).to.be.greaterThan(0);
 
 	return credential;
 }

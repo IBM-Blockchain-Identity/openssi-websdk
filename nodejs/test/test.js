@@ -106,8 +106,8 @@ describe('sdk', () => {
 	it(`should get identity for verifier '${verifierName}'`, async () => checkIdentity(verifier, verifierIdentity));
 
 	/**
-   * tests a holder initiated connection
-   */
+	 * tests a holder initiated connection
+	 */
 	it(`should connect '${holderName}' to '${issuerName}'`, async () => {
 		pairwiseDid = await connect(holder, issuer);
 	});
@@ -226,7 +226,8 @@ describe('sdk', () => {
 
 		let holderMessage = null;
 		for (let i=0; i<10; i++) {
-			holderMessage = await holder.getMessage(sentMessage.id);
+			const holderMessages = await holder.getMessages();
+			holderMessage = holderMessages.find(m => m.id === sentMessage.id);
 			if (holderMessage) {
 				break;
 			}
@@ -264,8 +265,8 @@ describe('sdk', () => {
 	});
 
 	/**
-   * issuer-initiated credential issuance
-   */
+	 * issuer-initiated credential issuance with creddef object
+	 */
 	it(`should issue credential from '${issuerName} to '${holderName}'`, async () => {
 		credential = await issueCredential(issuer, holder, credentialDefinition, pairwiseDid);
 	});
@@ -284,17 +285,30 @@ describe('sdk', () => {
 
 		expect(credentials.find(c => c.id === credential.id)).to.be.undefined;
 	});
-/*
+
+	/**
+	 * issuer-initiated credential issuance with creddef id
+	 */
+
+	it(`should issue credential from '${issuerName} to '${holderName}' using credential definition id`, async () => {
+		credential = await issueCredential(issuer, holder, credentialDefinition.id, pairwiseDid);
+
+		await holder.deleteCredential(credential.id);
+		const credentials = await holder.getCredentials();
+
+		expect(credentials.find(c => c.id === credential.id)).to.be.undefined;
+	});
+	/*
 	it(`should fail credential issuance from '${issuerName} to '${holderName}'`, async () => {
-		debugger;
 		credential = await issueCredential(issuer, holder, credentialDefinition.id+'foo', pairwiseDid);
 
 		expect(credentials).to.be.undefined;
 	});
-*/
+	*/
+
 	/**
-   * holder-initiated credential issuance
-   */
+	 * holder-initiated credential issuance
+	 */
 	it(`should request credential for '${holderName}' from '${issuerName}'`, async () => {
 		// find the connection that applies to the issuer
 		const holderConnections = await holder.getConnections();
@@ -379,9 +393,14 @@ describe('sdk', () => {
 		expect(proofRequest.proof_request).to.not.be.undefined;
 
 		// view proof requests and find the one from the verifier
-		const proofRequests = await holder.getVerifications({state: 'inbound_proof_request'});
-		expect(proofRequests).to.not.be.undefined;
-		verification = proofRequests.find(r => r.proof_request.name === proofRequest.proof_request.name && r.proof_request.version === proofRequest.proof_request.version);
+		verification = null;
+		for (let i=0; i<11; i++) {
+			const proofRequests = await holder.getVerifications({state: 'inbound_proof_request'});
+			if (proofRequests && proofRequests.length > 0) {
+				verification = proofRequests.find(r => r.proof_request.name === proofRequest.proof_request.name && r.proof_request.version === proofRequest.proof_request.version);
+				break;
+			}
+		}
 		expect(verification).to.not.be.undefined;
 
 		// provide proof
@@ -456,7 +475,8 @@ async function checkIdentity (agent, identity) {
 }
 
 /**
- * Connects A to B, where A and B are two agents.
+ * Connects A to B, where A and B are two agents.  Waits for the connection to be
+ *  established
  * @param {Agent} aAgent the A agent
  * @param {Agent} bAgent the B agent
  * @returns {Promise<string>} A promise that returns the remote pairwise DID of the connection.
@@ -478,7 +498,7 @@ async function connect (aAgent, bAgent) {
 
 	// accept invitation
 	const properties = {testkey: 'testvalue'};
-	const aConnection = await aAgent.acceptInvitation(invitation.url, properties);
+	let aConnection = await aAgent.acceptInvitation(invitation.url, properties);
 	expect(aConnection.state).to.be.equal('outbound_offer');
 	expect(aConnection.local).to.not.be.undefined;
 	expect(aConnection.local.properties).to.not.be.undefined;
@@ -492,6 +512,16 @@ async function connect (aAgent, bAgent) {
 	expect(bConnections.length).to.be.greaterThan(0);
 	expect(bConnections.find(c => c.id === aConnection.id)).to.not.be.undefined;
 	//TODO expect(aConnection.remote.url).to.equal(bIdentity.url);
+
+	for (let i=0; i<11; i++) {
+		if (aConnection.state !== ('connected')) {
+			await new Promise(resolve => setTimeout(resolve, 1000));
+			aConnection = await aAgent.getConnection(aConnection.id);
+			continue;
+		}
+		break;
+	}
+	expect(aConnection.state).to.be.equal('connected');
 
 	return aConnection.local.pairwise.did;
 }

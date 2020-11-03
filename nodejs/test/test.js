@@ -181,8 +181,11 @@ describe('sdk', () => {
 		expect(locationCredentialDefinition.id).to.not.be.undefined;
 
 		// validate the credential definition is contained in the issuer's list
-		const definitions = await secondIssuer.getCredentialDefinitions();
+		let definitions = await secondIssuer.getCredentialDefinitions();
+		expect(definitions.find(d => d.id === locationCredentialDefinition.id)).to.not.be.undefined;
 
+		// validate that filtering will also find it
+		definitions = await secondIssuer.getCredentialDefinitions(false, {"schema.name": locationSchema.name});
 		expect(definitions.find(d => d.id === locationCredentialDefinition.id)).to.not.be.undefined;
 	});
 

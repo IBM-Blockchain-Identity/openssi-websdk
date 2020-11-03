@@ -448,7 +448,7 @@ class Agent {
 	 * there are other queries you can make.
 	 * {
 	 *     name: 'My Schema',
-	 *     version: { $ne: '1.0' }
+	 *     version: { $neq: '1.0' }
 	 * }
 	 * @typedef {object} CredentialSchemaQueryParams
 	 * @property {string} [id] The ID of the schema
@@ -580,13 +580,14 @@ class Agent {
 	 * correspond to the fields in a {@link CredentialDefinition}.  The fields below are just examples to give you an idea;
 	 * there are other queries you can make.
 	 * {
-	 *     schema_name: 'My Schema',
-	 *     version: { $ne: '1.0' },
+	 *     schema.name: 'My Schema',
+	 *     schema.version: { $neq: '1.0' },
 	 *     owner_did: 'A4DXofjbeC97WZAHU5MVGK'
 	 * }
 	 * @typedef {object} CredentialDefinitionQueryParams
 	 * @property {string} [id] The ID of the credential definition
-	 * @property {string} [schema_name] The name of the schema for the credential definition
+	 * @property {string} [schema.name] The name of the schema for the credential definition
+	 * @property {string} [schema.version] The version of the schema for the credential definition
 	 * @property {string} [owner_did] The public DID of the agent who published the credential definition
 	 */
 
@@ -749,7 +750,7 @@ class Agent {
 	 * there are other queries you can make.
 	 * {
 	 *     name: 'My Schema',
-	 *     version: { $ne: '1.0' }
+	 *     version: { $neq: '1.0' }
 	 * }
 	 * @typedef {object} ProofSchemaQueryParams
 	 * @property {string} [name] The name of the proof schema
@@ -1062,7 +1063,7 @@ class Agent {
 	 * @property {AgentName} [remote.name] The name of the remote agent to match against.
 	 * @property {DID} [remote.pairwise.did] The remote pairwise DID to match.
 	 * {
-	 *     state: { $ne: 'inbound_offer' },
+	 *     state: { $neq: 'inbound_offer' },
 	 *     'remote.pairwise.did': 'A4DXofjbeC97WZAHU5MVGK'
 	 * }
 	 */
@@ -1620,7 +1621,7 @@ class Agent {
 	 * @property {VerificationState} [state] The state of the verifications.
 	 * {
 	 *     state: 'inbound_offer',
-	 *     'to.name': { $ne: 'test-holder'}
+	 *     'to.name': { $neq: 'test-holder'}
 	 * }
 	 */
 

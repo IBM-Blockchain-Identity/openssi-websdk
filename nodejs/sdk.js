@@ -826,10 +826,15 @@ class Agent {
 			throw new TypeError('Invitation ID must be a string');
 
 		this.logger.info(`Getting invitation ${id}`);
-		const r = await this.request(`invitations/${id}`);
-		this.logger.info(`Got invitation ${r.id}`);
-		this.logger.debug('Result from getInvitation: '+jsonPrint(r));
-		return r;
+		try {
+			const r = await this.request(`invitations/${id}`);
+			this.logger.info(`Got invitation ${r.id}`);
+			this.logger.debug('Result from getInvitation: '+jsonPrint(r));
+			return r;
+		} catch (error) {
+			this.logger.info(`Error getting invitation ${id}, error: ${error}`);
+			throw error;
+		}
 	}
 
 	/**
@@ -898,7 +903,7 @@ class Agent {
 			throw new TypeError('Invalid invitation direct route');
 		if (manual_accept && typeof manual_accept !== 'boolean')
 			throw new TypeError('Invalid invitation manual accept');
-		if (max_acceptances && typeof max_acceptances !== 'boolean')
+		if (max_acceptances && typeof max_acceptances !== 'number')
 			throw new TypeError('Invalid invitation max acceptances');
 		if (properties && typeof properties !== 'object')
 			throw new TypeError('Invalid invitation properties');
@@ -908,13 +913,13 @@ class Agent {
 		if (properties) {
 			body.properties = properties;
 		}
-		if (direct_route) {
+		if (typeof direct_route !== "undefined") {
 			body.direct_route = direct_route;
 		}
-		if (manual_accept) {
+		if (typeof manual_accept !== "undefined") {
 			body.manual_accept = manual_accept;
 		}
-		if (max_acceptances) {
+		if (max_acceptances !== "undefined") {
 			body.max_acceptances = max_acceptances;
 		}
 		const method = 'POST';

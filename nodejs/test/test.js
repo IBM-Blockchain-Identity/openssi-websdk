@@ -106,6 +106,40 @@ describe('sdk', () => {
 	it(`should get identity for verifier '${verifierName}'`, async () => checkIdentity(verifier, verifierIdentity));
 
 	/**
+	 * tests a holder created invitation
+	 */
+	it(`should create invitation for '${holderName}'`, async () => {
+		let testInvitation = await holder.createInvitation(false, false, 7, {"testproperty": "true"});
+		expect(testInvitation).to.not.be.undefined;
+		expect(testInvitation.properties).to.not.be.undefined;
+		expect(testInvitation.properties.testproperty).to.equal("true");
+		expect(testInvitation.direct_route).to.equal(false);
+		expect(testInvitation.manual_accept).to.equal(false);
+		expect(testInvitation.max_acceptances).to.equal(7);
+
+
+		testInvitation = await holder.getInvitation(testInvitation.id);
+		expect(testInvitation).to.not.be.undefined;
+		expect(testInvitation.properties).to.not.be.undefined;
+		expect(testInvitation.properties.testproperty).to.equal("true");
+		expect(testInvitation.direct_route).to.equal(false);
+		expect(testInvitation.manual_accept).to.equal(false);
+		expect(testInvitation.max_acceptances).to.equal(7);
+
+		await holder.deleteInvitation(testInvitation.id);
+
+		// make sure invitation was deleted
+		let holderInvitations = null;
+		for (let i=0; i<10; i++) {
+			holderInvitations = await holder.getInvitations({"id": testInvitation.id});
+			if (holderInvitations && !holderInvitations.find(a => a.id === testInvitation.id)) {
+				break;
+			}
+			await new Promise(resolve => setTimeout(resolve, 1000));
+		}
+	});
+
+	/**
 	 * tests a holder initiated connection
 	 */
 	it(`should connect '${holderName}' to '${issuerName}'`, async () => {

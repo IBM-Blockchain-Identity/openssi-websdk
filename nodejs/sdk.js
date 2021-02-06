@@ -201,7 +201,7 @@ class Agent {
 	 * @property {string} id The id of the agent.
 	 * @property {AgentName} name The name of the agent.
 	 * @property {AgentURL} url The url for the agent.
-	 * @property {AgentURL} url The url that represents the agent in a connection object.
+	 * @property {AgentURL} connection_url The url that represents the agent in a connection object.
 	 * @property {Verkey} verkey The public key for the agent.
 	 * @property {string} creation_time A datetime string for when the agent was created.
 	 * @property {DID} did The DID for the agent.
@@ -899,13 +899,13 @@ class Agent {
 	 * @return {Promise<Invitation>} The created {@link Invitation}.
 	 */
 	async createInvitation (direct_route, manual_accept, max_acceptances, properties) {
-		if (direct_route && typeof direct_route !== 'boolean')
+		if (typeof direct_route !== "undefined" && typeof direct_route !== 'boolean')
 			throw new TypeError('Invalid invitation direct route');
-		if (manual_accept && typeof manual_accept !== 'boolean')
+		if (typeof manual_accept !== "undefined" && typeof manual_accept !== 'boolean')
 			throw new TypeError('Invalid invitation manual accept');
-		if (max_acceptances && typeof max_acceptances !== 'number')
+		if (typeof max_acceptances !== "undefined" && typeof max_acceptances !== 'number')
 			throw new TypeError('Invalid invitation max acceptances');
-		if (properties && typeof properties !== 'object')
+		if (typeof properties !== "undefined" && typeof properties !== 'object')
 			throw new TypeError('Invalid invitation properties');
 
 		this.logger.info('Creating invitation');

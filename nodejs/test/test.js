@@ -117,6 +117,14 @@ describe('sdk', () => {
 		expect(testInvitation.manual_accept).to.equal(false);
 		expect(testInvitation.max_acceptances).to.equal(7);
 
+		// test that a bad parameter type throws the correct error
+		try {
+			await holder.createInvitation(false, false, false, {"testproperty": "true"});
+			assert.fail('createInvitation should have thrown an error');
+		} catch (error) {
+			// detect if we are ignoring connection error
+			expect((error instanceof TypeError) && (error.message.toLowerCase().startsWith('invalid invitation'))).to.be.true;
+		}
 
 		testInvitation = await holder.getInvitation(testInvitation.id);
 		expect(testInvitation).to.not.be.undefined;

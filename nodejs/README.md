@@ -2,7 +2,7 @@
 
 # openssi-websdk
 
-This SDK wraps calls to [IBM Verify Credential Account Service APIs](https://swagger.info.verify-creds.com/api/v1/docs/)
+This SDK wraps calls to [IBM Verify Credential Account Service APIs](https://agency.ibmsecurity.verify-creds.com/api/v1/docs/)
 in a set of javascript functions.
 
 ## Installation
@@ -18,12 +18,10 @@ npm install --save openssi-websdk
 - [Using Promises](#using-promises)
 - [Getting started](#getting-started)
 - [Connecting with other agents](#connecting-with-other-agents)
-    - [Creating an in-band connection](#creating-an-in-band-connection)
-        - [Sending a connection offer](#sending-a-connection-offer)
-        - [Accepting incoming connection offers](#accepting-incoming-connection-offers)
-    - [Creating an out-of-band connection](#creating-an-out-of-band-connection)
-        - [Creating a connection offer](#creating-a-connection-offer)
-        - [Accepting a connection offer](#accepting-connection-offers)
+    - [Creating an invitation](#creating-an-invitation)
+        - [Communicating an invitation](#communicating-an-invitation)
+        - [Accepting an invitation](#accepting-an-invitation)
+        - [Accepting the connection offer](#accepting-the-connection-offer)
 - [Issuing credentials](#issuing-credentials)
     - [Checking your agent's role](#checking-your-agents-role)
     - [Publishing a credential schema](#publishing-a-credential-schema)
@@ -63,10 +61,11 @@ Create an instance of `Agent` and connect to your cloud agent:
 const Agent = require('openssi-websdk').Agent;
 
 const account_url = 'https://myaccount.example.com';
+const agent_id = '01234567890'
 const agent_name = 'my_agent';
 const agent_password = 'my_password';
 
-const agent = new Agent(account_url, agent_name, agent_password);
+const agent = new Agent(account_url, agent_id, agent_name, agent_password);
 
 (async () => {
 	// Check the username and password by hitting the API
@@ -77,31 +76,37 @@ const agent = new Agent(account_url, agent_name, agent_password);
 
 ## Connecting with other agents
 
-In order to interact with other agents to issue credentials, request verifications, etc., you must first establish a
-secure connection with those agents.  There are two ways to establish connections, in-band and out-of-band.
+In order to interact with other agents to issue credentials, request verifications, exchange messages, etc., you must first establish a secure connection with those agents.  Connections can be established with invitations.
 
-### Creating an in-band connection
+### Creating an invitation
 
-If a name or url of another other agent is provided when creating the connection, this agent will attempt to contact the
-other agent and deliver the connection offer on your behalf.
-
-#### Sending a connection offer
-
-Create a `Connection` for another agent with the state `outbound_offer` and wait for it to enter the
-`connected` state:
+Building a connection begins with an invitation.  An agent must create an invitation and provide it to another agent with whom it would like to connect.
 
 ```javascript
-const to = {
-	url: 'https://theiragent:@theiraccount.example.com'
-};
+const direct_= true; // messages will be sent directly to the inviter
+const manual_accept = false; // the inviter's agent will automatically accept any cunnetcion offer from this invitation
+const max_acceptances = -1; // set no limit on how many times this invitaton may be accepted 
+const properties = null; // properties to set on the inviter's side of the connection
 
-const connection_offer = await agent.createConnection(to);
-const accepted_connection = await agent.waitForConnection(connection_offer.id);
+const invitation = await agent.createInvitation(direct_route, manual_accept, max_acceptances, properties);
 ```
 
-#### Accepting incoming connection offers
+#### Communicating an invitation
 
-Get a list of connections with the state `inbound_offer` and change their state to `connected`
+Invitation urls must be communicated to other parties out-of-band (outside of the agency).  For example, they may be provided to other parties in a registration form, publicly on a web page, or embedded in a QR code displayed by a web app or printed on a piece of paper.
+
+#### Accepting an invitation
+
+You can accept an invitation provided to you.  This will generate a connection object that will have the state "connected" once the connection offer is accepted by the inviter.
+
+```javascript
+const url = invitation_url; // Invitation url to accept
+const connection = await agent.acceptInvitation(invitation_url);
+```
+
+#### Accepting the connection offer
+
+As an inviter, at the time of invitation creation, you can specify whether you want your agent to automatically accept any connection offer associated with this invitation or you can choose to manually accept each invitation.  For example, you may choose to allow connections based on some kind of business logic.
 
 ```javascript
 const opts = {
@@ -114,55 +119,22 @@ for (const index in inbound_offers) {
 }
 ```
 
-### Creating an out-of-band connection
-
-If another agent's name or url are not specified when creating the connection, this agent will not attempt to deliver
-the created connection offer.
-
-#### Creating a connection offer
-
-Create a `Connection` without specifying a name or url for another agent:
-
-```javascript
-const connection_offer = await agent.createConnection();
-
-// Deliver the connection_offer to the other agent's user and wait for them to send it to their agent.
-
-const accepted_connection = await agent.waitForConnection(connection_offer.id);
-```
-> `waitForConnection()` is a helper method provided for your convenience.  You could just as easily write your own logic
-for waiting on connections to be accepted.  In either case, you should probable delete connections that are not accepted
-using the `deleteConnection()` method.
-
-#### Accepting connection offers
-
-Post a given connection offer object to your agent.
-
-```javascript
-const accepted_connection = await agent.acceptConnection(connection_offer);
-```
-
 ## Issuing credentials
 
 Once you have a `Connection` to another agent, you can offer `Credentials` over that connection.
 
 ### Checking your agent's role
 
-In order to issue credentials, you will need write access to the ledger.  This is only possible if your agent is a
-`TRUST_ANCHOR`.
+In order to issue credentials, you will need write access to the ledger.  This is only possible if your agent is an
+`ENDORSER`.
 
 ```javascript
 const agent_info = await agent.getIdentity();
 
-console.log(agent_info.role);
+console.log(agent_info.issuer);
 
-if (role !== 'TRUST_ANCHOR') {
-	
-	// Your admin will be the first agent that was created on your account 
-	const agent_admin_name = 'my_admin';
-	const agent_admin_password = 'my_admin_password';
-	
-	const updated_agent = await agent.onboardAsTrustAnchor(agent_admin_name, agent_admin_password);
+if (agent_info.issuer !== true) {
+	const updated_agent = await agent.onboardAsTrustAnchor();
 }
 ```
 
@@ -250,6 +222,19 @@ const requested_attributes = {
 };
 
 const proof_schema = await agent.createProofSchema(name, version, requested_attributes);
+```
+
+#### Retrieving credential schemas, credential definitions from issuers
+
+Proof schemas with more stringent requirements oftern require credential schema id's or credential definition id's that are only known by the issuers that originally published them.  For scenarios where the verifier is not also the issuer of the required credentials, it is possible to query credential definitions and schemas from all other issuers in the agency or even filter it down to a specific issuer if you know their public DID.
+
+```javascript
+const all = true; // look for credential definitions published by agents other than the current agent
+const opts = {
+	owner_did: '01234567890'
+};
+
+const dmv_cred_defs = await this.agent.getCredentialDefinitions(all, opts);
 ```
 
 ### Requesting verification

@@ -2,7 +2,7 @@
 
 # openssi-websdk
 
-Official libraries for using [IBM Verify Credential Account Service APIs](https://swagger.info.verify-creds.com/api/v1/docs/).
+Official libraries for using [IBM Verify Credential Account Service APIs](https://agency.ibmsecurity.verify-creds.com/api/v1/docs/).
 
 Currently supported languages include:
 

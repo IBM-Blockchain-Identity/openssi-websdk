@@ -473,7 +473,7 @@ describe('sdk', () => {
 		// wait up to 10s for verification to happen which is when state will
 		//  change from proof_shared to either passed or failed
 		for (let i=0; i<11; i++) {
-			if (verification.state === ('outbound_proof_request' || 'proof_shared')) {
+			if (['outbound_proof_request', 'proof_shared'].indexOf(verification.state) >= 0) {
 				await new Promise(resolve => setTimeout(resolve, 1000));
 				verification = await holder.getVerification(verification.id);
 				continue;

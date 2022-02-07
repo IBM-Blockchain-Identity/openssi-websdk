@@ -15,7 +15,9 @@
  */
 
 const async = require('async');
-const fetch = require('node-fetch');
+// node-fetch in v3+ needs to be imported from a module.  This is the way to load
+//  it into CommonJS per npmjs.com documentation for node-fetch
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const URL = require('url').URL;
 const https = require('https');
 const http = require('http');

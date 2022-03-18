@@ -873,8 +873,8 @@ class Agent {
 	/**
 	 * Returns a list of {@link Invitation}s.  If query parameters are provided, only invitations matching those parameters will
 	 * be returned.  If none are specified, all of the agent's invitations will be returned.
-	 * @param {InvitationQueryParams} [opts] Connections search parameters.
-	 * @return {Promise<Invitation[]>} A list of all connections or only those matching the query parameters.
+	 * @param {InvitationQueryParams} [opts] Invitations search parameters.
+	 * @return {Promise<Invitation[]>} A list of all invitations or only those matching the query parameters.
 	 */
 	async getInvitations (opts) {
 		let query = '';

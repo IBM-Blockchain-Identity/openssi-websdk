@@ -9,6 +9,7 @@ const {
 	ADMIN_ID: adminId,
 	ADMIN_NAME: adminName,
 	ADMIN_PASSWORD: adminPassword,
+	AGENT_PASSWORD: agentPassword,
 	ISSUER_AGENT_NAME: issuerName,
 	HOLDER_AGENT_NAME: holderName,
 	VERIFIER_AGENT_NAME: verifierName,
@@ -53,13 +54,13 @@ describe('sdk', () => {
 				}
 				switch (agent.name) {
 				case holderName:
-					holder = new Agent(agencyUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					holder = new Agent(agencyUrl, agent.id, agent.name, agentPassword, agent.name, logLevel);
 					break;
 				case issuerName:
-					issuer = new Agent(agencyUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					issuer = new Agent(agencyUrl, agent.id, agent.name, agentPassword, agent.name, logLevel);
 					break;
 				case verifierName:
-					verifier = new Agent(agencyUrl, agent.id, agent.name, agent.pass, agent.name, logLevel);
+					verifier = new Agent(agencyUrl, agent.id, agent.name, agentPassword, agent.name, logLevel);
 					break;
 				}
 				targets.splice(targetIndex, 1);
@@ -67,13 +68,33 @@ describe('sdk', () => {
 		}
 
 		if (targets.length !== 0) {
-			console.log(`Some agents aren't set up, yet: ${targets}`);
-			process.exit(1);
+			console.log(`Some agents aren't set up, yet: ${targets}, so will create them`);
+			for (const agentName of targets) {
+				// create the Agent objects and then call createIdentity which will create the agent
+				//  in the account.  Use a pre-defined password because passwords are no longer
+				//  queryable via REST API.
+				const newAgent = new Agent(agencyUrl, '0', agentName, agentPassword, agentName, logLevel);
+				await newAgent.createIdentity(adminId, adminPassword);
+				switch (agentName) {
+					case holderName:
+						holder = newAgent;
+						break;
+					case issuerName:
+						issuer = newAgent;
+						break;
+					case verifierName:
+						verifier = newAgent;
+						break;
+					}
+			}
 		}
 
 		holderIdentity = await holder.getIdentity();
+		expect(holderIdentity).to.not.be.undefined;
 		issuerIdentity = await issuer.getIdentity();
+		expect(issuerIdentity).to.not.be.undefined;
 		verifierIdentity = await verifier.getIdentity();
+		expect(verifierIdentity).to.not.be.undefined;
 
 		// THIS WILL DELETE DATA IF SET
 		if (purge && typeof purge === 'string' && purge.toLowerCase() === 'true') {

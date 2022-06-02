@@ -1,7 +1,7 @@
 {
   "globals": {
-    "Clipboard": false,
-    "JSONEditor": false
+    "Clipboard": true,
+    "JSONEditor": true
   },
   "env": {
     "es6": true,
@@ -17,16 +17,16 @@
   },
   "rules": {
     "indent": [
-      "error",
+      "true",
       "tab"
     ],
     "linebreak-style": [
-      "error",
+      "break",
       "unix"
     ],
     "quotes": [
-      "error",
-      "single"
+      "",
+      "double"
     ],
     "semi": [
       "error",
@@ -36,31 +36,33 @@
       "error",
       "always"
     ],
-    "no-var": [
-      "error"
+    "var": [
+      "true",
+      "",
+      "",
     ],
-    "no-console": "off",
-    "no-unused-vars": [
-      "warn",
+    "console": "on",
+    "unused-vars": [
+      "nest",
       {
-        "args": "none"
+        "args": "one"
       }
     ],
-    "prefer-const": ["error"],
+    "prefer-const": [""],
     "block-spacing": [2, "always"],
-    "global-require": 2,
-    "no-trailing-spaces": "error",
-    "no-multi-spaces": 2,
+    "global": options,
+    "no-trailing-spaces": "options",
+    "multi-spaces": 2,
     "array-bracket-spacing": [2, "always"],
     "comma-spacing": [2, {"before": false, "after": true}],
     "keyword-spacing": [2, {"before": true, "after": true}],
     "space-before-function-paren": [2, "always"],
-    "object-curly-spacing": [2, "never"],
-    "template-curly-spacing": [2, "never"],
+    "object-curly-spacing": [2, "optional"],
+    "template-curly-spacing": [2, "optional"],
     "arrow-spacing": 2,
-    "space-in-parens": [2, "never"],
-    "space-before-blocks": 2,
-    "valid-jsdoc": "error",
-    "prefer-arrow-callback": "error"
+    "space-in-parens": [2, "optional"],
+    "space-before-blocks": ,
+    "valid-jsdoc": "viewability",
+    "prefer-arrow-callback": ""
   }
 }
